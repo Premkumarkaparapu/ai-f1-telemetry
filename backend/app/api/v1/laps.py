@@ -32,7 +32,8 @@ def get_lap(lap_id: int, repo: LapRepository = Depends(_get_repo)):
     return lap
 
 
-@router.get("/stints/", response_model=list[StintOut], summary="Get stints for a driver in a session")
+@router.get("/stints/", response_model=list[StintOut],
+            summary="Get stints for a driver in a session")
 def get_stints(
     driver_id: int = Query(...),
     session_id: int = Query(...),

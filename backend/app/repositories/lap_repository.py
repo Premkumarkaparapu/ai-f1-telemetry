@@ -14,7 +14,7 @@ class LapRepository:
     def get_by_driver(self, driver_id: int, valid_only: bool = False) -> list[Lap]:
         q = self.db.query(Lap).filter(Lap.driver_id == driver_id)
         if valid_only:
-            q = q.filter(Lap.is_valid == True)
+            q = q.filter(Lap.is_valid.is_(True))
         return q.order_by(Lap.lap_number).all()
 
     def get_by_id(self, lap_id: int) -> Optional[Lap]:
@@ -23,7 +23,7 @@ class LapRepository:
     def get_fastest_by_driver(self, driver_id: int) -> Optional[Lap]:
         return (
             self.db.query(Lap)
-            .filter(Lap.driver_id == driver_id, Lap.is_valid == True, Lap.lap_time_ms.isnot(None))
+            .filter(Lap.driver_id == driver_id, Lap.is_valid.is_(True), Lap.lap_time_ms.isnot(None))
             .order_by(Lap.lap_time_ms)
             .first()
         )

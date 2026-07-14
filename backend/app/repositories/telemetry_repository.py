@@ -1,6 +1,5 @@
 """Telemetry repository — isolates all telemetry-related SQL queries."""
 
-from typing import Optional
 
 from sqlalchemy import func, Float
 from sqlalchemy.orm import Session

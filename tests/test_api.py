@@ -35,7 +35,6 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 Base.metadata.create_all(bind=engine)
 
 
-
 def override_get_db():
     db = TestingSessionLocal()
     try:

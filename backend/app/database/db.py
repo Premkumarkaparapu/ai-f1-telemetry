@@ -54,7 +54,7 @@ def get_db() -> Generator[Session, None, None]:
 @contextmanager
 def get_pipeline_db() -> Generator[Session, None, None]:
     """Context manager for use in pipeline scripts (non-FastAPI code).
-    
+
     Usage:
         with get_pipeline_db() as db:
             db.add(record)

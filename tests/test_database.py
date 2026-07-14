@@ -8,8 +8,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.app.database.models import (
-    Base, Session as SessionModel, Driver, Lap, TelemetryPoint,
-    Weather, Stint, Tyre, PitStop, DatasetMetadata,
+    Base, Session as SessionModel, Driver, Lap,
+    Tyre, DatasetMetadata,
 )
 
 TEST_URL = "sqlite:///:memory:"
@@ -48,7 +48,8 @@ def test_cascade_delete_session():
     d = Driver(session_id=s.session_id, code="VER", team="Red Bull")
     db.add(d)
     db.flush()
-    lap = Lap(driver_id=d.driver_id, lap_number=1, lap_time_ms=82000, is_pit_lap=False, is_valid=True)
+    lap = Lap(driver_id=d.driver_id, lap_number=1,
+              lap_time_ms=82000, is_pit_lap=False, is_valid=True)
     db.add(lap)
     db.commit()
 
@@ -69,7 +70,8 @@ def test_tyre_one_to_one_lap():
     d = Driver(session_id=s.session_id, code="HAM", team="Mercedes")
     db.add(d)
     db.flush()
-    lap = Lap(driver_id=d.driver_id, lap_number=5, lap_time_ms=90000, is_pit_lap=False, is_valid=True)
+    lap = Lap(driver_id=d.driver_id, lap_number=5,
+              lap_time_ms=90000, is_pit_lap=False, is_valid=True)
     db.add(lap)
     db.flush()
     tyre = Tyre(lap_id=lap.lap_id, compound="MEDIUM", tyre_life=8, degradation_factor=95.5)

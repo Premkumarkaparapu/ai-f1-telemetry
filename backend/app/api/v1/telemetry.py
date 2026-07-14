@@ -28,7 +28,7 @@ def _get_service(db: Session = Depends(get_db)) -> TelemetryService:
 )
 def get_telemetry(lap_id: int, svc: TelemetryService = Depends(_get_service)):
     """Returns all 5Hz telemetry samples for the specified lap, ordered by distance.
-    
+
     ⚠️ This returns ~450 rows per lap. Use /summary for lightweight dashboard cards.
     """
     return svc.get_telemetry(lap_id)
@@ -41,7 +41,7 @@ def get_telemetry(lap_id: int, svc: TelemetryService = Depends(_get_service)):
 )
 def get_telemetry_summary(lap_id: int, svc: TelemetryService = Depends(_get_service)):
     """Returns aggregated stats (max speed, avg throttle, DRS %, sector times).
-    
+
     Use this for dashboard summary cards — it runs one SQL aggregation query
     instead of streaming all telemetry rows.
     """

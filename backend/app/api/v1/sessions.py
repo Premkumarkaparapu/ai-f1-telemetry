@@ -42,8 +42,7 @@ def get_weather(session_id: int, svc: SessionService = Depends(_get_service)):
 )
 def get_standings(session_id: int, svc: SessionService = Depends(_get_service)):
     """Returns drivers ranked by fastest lap, with pit stop counts and averages.
-    
+
     Use this to populate the leaderboard on the frontend dashboard.
     """
     return svc.get_standings(session_id)
-

@@ -35,7 +35,7 @@ def _get_service(db: Session = Depends(get_db)) -> PredictionService:
 )
 def predict(request: PredictionRequest, svc: PredictionService = Depends(_get_service)):
     """Predicts the next lap time using tyre state and historical data.
-    
+
     Falls back to mean lap time if the ML model is not yet trained.
     """
     return svc.predict(request)

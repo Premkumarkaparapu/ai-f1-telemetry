@@ -22,7 +22,6 @@ def test_save_and_load_raw(tmp_path, monkeypatch):
     assert loaded.event["EventName"] == "Test GP"
 
 
-
 def test_load_raw_missing_raises(tmp_path, monkeypatch):
     """load_raw should raise FileNotFoundError if not ingested."""
     monkeypatch.setattr("data_pipeline.ingest.RAW_DIR", tmp_path)
@@ -33,7 +32,7 @@ def test_load_raw_missing_raises(tmp_path, monkeypatch):
 @pytest.mark.integration
 def test_real_fastf1_ingest():
     """INTEGRATION TEST: Fetches real Monza 2023 Race session from FastF1 API.
-    
+
     Requires network access and ~30-60s.
     Run manually:  pytest -m integration
     """

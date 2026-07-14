@@ -1,7 +1,6 @@
 """Tests — Feature engineering unit tests (offline, pure pandas, no DB)."""
 
 import pandas as pd
-import numpy as np
 import pytest
 
 from data_pipeline.features import (

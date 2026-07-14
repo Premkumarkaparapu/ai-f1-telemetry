@@ -8,10 +8,8 @@ Integer primary keys are used throughout (not UUIDs) — optimal for SQLite and
 straightforward to migrate to Postgres sequences later.
 """
 
-from datetime import datetime
 
 from sqlalchemy import (
-    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -92,7 +90,8 @@ class Driver(Base):
     __tablename__ = "drivers"
 
     driver_id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(Integer, ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(Integer, ForeignKey(
+        "sessions.session_id", ondelete="CASCADE"), nullable=False)
     code = Column(String(3), nullable=False)        # e.g. VER, HAM, LEC
     full_name = Column(String(100))
     team = Column(String(100))
@@ -143,7 +142,8 @@ class Lap(Base):
 
     # Relationships
     driver = relationship("Driver", back_populates="laps")
-    telemetry_points = relationship("TelemetryPoint", back_populates="lap", cascade="all, delete-orphan")
+    telemetry_points = relationship(
+        "TelemetryPoint", back_populates="lap", cascade="all, delete-orphan")
     tyre = relationship("Tyre", back_populates="lap", uselist=False, cascade="all, delete-orphan")
 
     __table_args__ = (
@@ -169,7 +169,8 @@ class TelemetryPoint(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     lap_id = Column(Integer, ForeignKey("laps.lap_id", ondelete="CASCADE"), nullable=False)
-    session_id = Column(Integer, ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(Integer, ForeignKey(
+        "sessions.session_id", ondelete="CASCADE"), nullable=False)
 
     # Core channels
     time_ms = Column(Integer)           # milliseconds from lap start
@@ -210,7 +211,8 @@ class Weather(Base):
     __tablename__ = "weather"
 
     weather_id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(Integer, ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(Integer, ForeignKey(
+        "sessions.session_id", ondelete="CASCADE"), nullable=False)
     time_ms = Column(Integer)           # ms from session start
     air_temp = Column(Float)
     track_temp = Column(Float)
@@ -237,7 +239,8 @@ class Stint(Base):
 
     stint_id = Column(Integer, primary_key=True, autoincrement=True)
     driver_id = Column(Integer, ForeignKey("drivers.driver_id", ondelete="CASCADE"), nullable=False)
-    session_id = Column(Integer, ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(Integer, ForeignKey(
+        "sessions.session_id", ondelete="CASCADE"), nullable=False)
     stint_number = Column(Integer, nullable=False)
     compound = Column(String(20))
     start_lap = Column(Integer)
@@ -261,7 +264,8 @@ class Tyre(Base):
     __tablename__ = "tyres"
 
     tyre_id = Column(Integer, primary_key=True, autoincrement=True)
-    lap_id = Column(Integer, ForeignKey("laps.lap_id", ondelete="CASCADE"), nullable=False, unique=True)
+    lap_id = Column(Integer, ForeignKey("laps.lap_id", ondelete="CASCADE"),
+                    nullable=False, unique=True)
     compound = Column(String(20))
     tyre_life = Column(Integer)
     degradation_factor = Column(Float)  # delta_laptime / delta_tyre_life for this stint
@@ -279,7 +283,8 @@ class PitStop(Base):
 
     pitstop_id = Column(Integer, primary_key=True, autoincrement=True)
     driver_id = Column(Integer, ForeignKey("drivers.driver_id", ondelete="CASCADE"), nullable=False)
-    session_id = Column(Integer, ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(Integer, ForeignKey(
+        "sessions.session_id", ondelete="CASCADE"), nullable=False)
     lap_number = Column(Integer, nullable=False)
     duration_ms = Column(Integer)       # total pit lane time loss in ms
 
@@ -305,7 +310,8 @@ class Prediction(Base):
     __tablename__ = "predictions"
 
     prediction_id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(Integer, ForeignKey("sessions.session_id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(Integer, ForeignKey(
+        "sessions.session_id", ondelete="CASCADE"), nullable=False)
     driver_id = Column(Integer, ForeignKey("drivers.driver_id", ondelete="CASCADE"), nullable=False)
     model_name = Column(String(100), nullable=False)    # e.g. "tire_degradation_xgb"
     model_version = Column(String(20), default="1.0.0")

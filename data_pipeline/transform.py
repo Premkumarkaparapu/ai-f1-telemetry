@@ -15,14 +15,12 @@ import pandas as pd
 import fastf1
 
 from backend.app.core.config import (
-    CACHE_DIR,
     RAW_DIR,
     PROCESSED_DIR,
     TARGET_SESSIONS,
     TELEMETRY_SAMPLE_RATE,
     FUEL_EFFECT_SEC_PER_LAP,
 )
-from backend.app.core.constants import SECTOR_COLS, SECTOR_MS_COLS
 from backend.app.core.logging import get_logger, setup_logging
 
 setup_logging("pipeline.log")
@@ -42,7 +40,7 @@ def _td_to_ms(td) -> Optional[int]:
 
 def _compute_fuel_corrected_time(lap_time_ms: Optional[int], lap_number: int) -> Optional[int]:
     """Subtract the cumulative fuel burn benefit from a raw lap time.
-    
+
     As fuel burns off, the car becomes lighter and naturally goes faster.
     Correcting for this isolates pure tyre/driver performance from fuel effects.
     The constant FUEL_EFFECT_SEC_PER_LAP ≈ 0.055s represents the
@@ -110,7 +108,7 @@ def transform_laps(session: fastf1.core.Session) -> pd.DataFrame:
 
 def _resample_telemetry(tel: pd.DataFrame) -> pd.DataFrame:
     """Downsample telemetry to TELEMETRY_SAMPLE_RATE Hz.
-    
+
     FastF1 returns car data at ~18Hz and position data at ~10Hz.
     We merge them via get_telemetry() (which FastF1 does internally) then
     resample to SAMPLE_INTERVAL_MS to keep the database manageable.
@@ -127,7 +125,7 @@ def _resample_telemetry(tel: pd.DataFrame) -> pd.DataFrame:
 
     # Bin time into SAMPLE_INTERVAL_MS buckets and take mean per bucket
     tel["time_bin"] = (tel["time_ms"] // SAMPLE_INTERVAL_MS) * SAMPLE_INTERVAL_MS
-    
+
     agg = {
         "distance_m": "last",
         "Speed": "mean",
@@ -146,7 +144,8 @@ def _resample_telemetry(tel: pd.DataFrame) -> pd.DataFrame:
     agg = {k: v for k, v in agg.items() if k in tel.columns}
 
     resampled = tel.groupby("time_bin").agg(agg).reset_index()
-    resampled = resampled.rename(columns={"time_bin": "time_ms", "Speed": "speed_kmh", "nGear": "gear"})
+    resampled = resampled.rename(
+        columns={"time_bin": "time_ms", "Speed": "speed_kmh", "nGear": "gear"})
 
     # Normalise bool columns
     for col in ["Brake", "DRS"]:
@@ -161,7 +160,9 @@ def _resample_telemetry(tel: pd.DataFrame) -> pd.DataFrame:
     return resampled
 
 
-def transform_telemetry(session: fastf1.core.Session, driver_code: str, lap_number: int) -> pd.DataFrame:
+def transform_telemetry(
+        session: fastf1.core.Session, driver_code: str, lap_number: int
+) -> pd.DataFrame:
     """Return cleaned, downsampled telemetry for one lap of one driver."""
     try:
         lap = session.laps.pick_driver(driver_code).pick_lap(lap_number)
@@ -236,12 +237,12 @@ def validate_fuel_correction(laps_df: pd.DataFrame) -> None:
     """Sanity check: for a long green-flag stint, fuel-corrected lap times
     should trend flat (or very slightly downward from tyre deg), not downward
     steeply like the raw lap times do.
-    
+
     Logs a warning if the trend is still strongly downward, which would suggest
     the FUEL_EFFECT_SEC_PER_LAP constant needs adjustment.
     """
     # Find a stint with at least 10 valid laps to get a meaningful trend
-    valid = laps_df[(laps_df["is_valid"] == True) & (laps_df["stint_number"] > 0)].copy()
+    valid = laps_df[laps_df["is_valid"] & (laps_df["stint_number"] > 0)].copy()
     if valid.empty:
         return
 
@@ -261,17 +262,17 @@ def validate_fuel_correction(laps_df: pd.DataFrame) -> None:
     if len(stint_laps) < 3:
         return
 
-    lap_nums = list(range(len(stint_laps)))
     fc_times = stint_laps["fuel_corrected_lap_time_ms"].dropna().tolist()
 
     if len(fc_times) > 2:
         # Simple linear trend check — slope should be near 0 or slightly positive (deg)
         first_half = sum(fc_times[: len(fc_times) // 2]) / (len(fc_times) // 2)
-        second_half = sum(fc_times[len(fc_times) // 2 :]) / (len(fc_times) - len(fc_times) // 2)
+        second_half = sum(fc_times[len(fc_times) // 2:]) / (len(fc_times) - len(fc_times) // 2)
         delta_ms = second_half - first_half
 
         logger.info(
-            "Fuel correction validation: first-half avg=%.0fms, second-half avg=%.0fms, delta=%.0fms",
+            "Fuel correction validation: "
+            "first-half avg=%.0fms, second-half avg=%.0fms, delta=%.0fms",
             first_half,
             second_half,
             delta_ms,

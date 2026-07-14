@@ -3,7 +3,6 @@ Shared pytest fixtures available to all test modules.
 """
 
 import os
-import pytest
 
 # ── Environment defaults for tests ────────────────────────────────────────────
 # These ensure no test accidentally writes to the real database.

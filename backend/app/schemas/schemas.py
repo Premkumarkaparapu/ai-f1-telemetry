@@ -166,6 +166,7 @@ class PredictionRequest(BaseModel):
     prediction_type: str           # "lap_time" | "pit_window" | "race_simulation"
     pit_lap: Optional[int] = None  # for strategy simulations: proposed pit lap
 
+
 class PredictionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -230,4 +231,3 @@ class DriverStandingOut(BaseModel):
     avg_lap_time_ms: Optional[float]
     pit_stop_count: int
     position: int
-

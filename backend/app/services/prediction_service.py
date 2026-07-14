@@ -5,8 +5,6 @@ Falls back to DB-computed values gracefully if models are not yet trained.
 
 import json
 from datetime import datetime
-from typing import Optional
-
 from fastapi import HTTPException
 
 from backend.app.core.logging import get_logger
@@ -45,7 +43,7 @@ class PredictionService:
         if not laps:
             raise HTTPException(status_code=422, detail="No valid laps found for this driver.")
 
-        valid_times = [l.lap_time_ms for l in laps if l.lap_time_ms]
+        valid_times = [lap.lap_time_ms for lap in laps if lap.lap_time_ms]
         mean_time = sum(valid_times) / len(valid_times) if valid_times else 0.0
 
         predicted_value = mean_time
@@ -86,18 +84,18 @@ class PredictionService:
             raise HTTPException(
                 status_code=422,
                 detail=f"compounds must have exactly {len(request.pit_laps) + 1} entries "
-                       f"(one per stint). Got {len(request.compounds)}.",
+                f"(one per stint). Got {len(request.compounds)}.",
             )
 
         laps = self.lap_repo.get_by_driver(request.driver_id, valid_only=True)
         if not laps:
             raise HTTPException(status_code=422, detail="No valid laps found for driver.")
 
-        total_laps = max(l.lap_number for l in laps)
+        total_laps = max(lap.lap_number for lap in laps)
         actual_laps: dict[int, int] = {
-            l.lap_number: l.lap_time_ms
-            for l in laps
-            if l.lap_time_ms
+            lap.lap_number: lap.lap_time_ms
+            for lap in laps
+            if lap.lap_time_ms
         }
 
         all_valid_times = list(actual_laps.values())
@@ -105,7 +103,6 @@ class PredictionService:
 
         per_lap_times: list[float] = []
         total_time: float = 0.0
-        model_type = "mean_fallback"
 
         try:
             from ml.inference import simulate_race_strategy
@@ -118,7 +115,6 @@ class PredictionService:
             )
             per_lap_times = result["per_lap_times_ms"]
             total_time = result["total_race_time_ms"]
-            model_type = "ml"
         except Exception as e:
             logger.warning("ML simulation failed, using simple fallback: %s", e)
             pit_set = set(request.pit_laps)
@@ -186,7 +182,7 @@ class PredictionService:
         if not laps:
             raise HTTPException(status_code=422, detail="No valid laps for driver.")
 
-        total_laps = max(l.lap_number for l in laps)
+        total_laps = max(lap.lap_number for lap in laps)
         last_lap = laps[-1]
         compound = (last_lap.compound or "MEDIUM").upper()
         tyre_life = last_lap.tyre_life or current_lap

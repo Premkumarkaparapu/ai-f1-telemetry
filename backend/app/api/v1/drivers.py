@@ -33,5 +33,6 @@ def get_driver(
     from fastapi import HTTPException
     driver = repo.get_by_code(session_id, code)
     if not driver:
-        raise HTTPException(status_code=404, detail=f"Driver '{code}' not found in session {session_id}.")
+        raise HTTPException(
+            status_code=404, detail=f"Driver '{code}' not found in session {session_id}.")
     return driver

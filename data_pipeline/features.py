@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 
 def compute_tyre_degradation(laps_df: pd.DataFrame) -> pd.DataFrame:
     """Compute per-stint degradation factor: Δlap_time / Δtyre_life.
-    
+
     A positive value means each additional lap on the tyre costs X ms.
     Only computed for stints with enough clean laps to fit a trend.
     """
@@ -41,7 +41,7 @@ def compute_tyre_degradation(laps_df: pd.DataFrame) -> pd.DataFrame:
     groups = laps_df.groupby(["DriverNumber", "stint_number"])
 
     for (driver, stint), group in groups:
-        valid = group[group["is_valid"] == True].copy()
+        valid = group[group["is_valid"]].copy()
         # Exclude in/out laps (first and last lap of the stint)
         if len(valid) <= STINT_EXCLUSION_LAPS * 2:
             continue
@@ -84,7 +84,7 @@ def compute_sector_deltas(laps_df: pd.DataFrame) -> pd.DataFrame:
 
 def compute_lap_consistency(laps_df: pd.DataFrame) -> pd.DataFrame:
     """Compute lap-time standard deviation within a stint.
-    
+
     A lower value indicates the driver is more consistent on that compound.
     Useful for compound/driver classification models.
     """
@@ -93,7 +93,7 @@ def compute_lap_consistency(laps_df: pd.DataFrame) -> pd.DataFrame:
 
     groups = laps_df.groupby(["DriverNumber", "stint_number"])
     for (driver, stint), group in groups:
-        valid = group[(group["is_valid"] == True) & group["fuel_corrected_lap_time_ms"].notna()]
+        valid = group[group["is_valid"] & group["fuel_corrected_lap_time_ms"].notna()]
         if len(valid) < 3:
             continue
         std = valid["fuel_corrected_lap_time_ms"].std()
@@ -106,7 +106,7 @@ def compute_lap_consistency(laps_df: pd.DataFrame) -> pd.DataFrame:
 
 def compute_telemetry_features(tel_df: pd.DataFrame) -> dict:
     """Compute summary features from a single lap's telemetry DataFrame.
-    
+
     Returns a dict that can be merged onto the laps DataFrame as new columns.
     """
     if tel_df.empty:

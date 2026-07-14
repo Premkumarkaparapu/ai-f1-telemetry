@@ -44,7 +44,8 @@ def verify() -> bool:
             count = db.query(model).count()
             status = "✓" if count > 0 else "✗ EMPTY"
             print(f"  {label:<20} {count:>8,} rows   {status}")
-            if count == 0 and label not in ("Predictions",):  # Predictions are optional at this stage
+            # Predictions are optional at this stage
+            if count == 0 and label not in ("Predictions",):
                 all_ok = False
 
         print("-" * 60)
@@ -52,19 +53,26 @@ def verify() -> bool:
         # Sample a session and a lap for quick sanity check
         session = db.query(SessionModel).first()
         if session:
-            print(f"\n  Sample session: {session.year} {session.event_name} ({session.session_type})")
+            print(
+                f"\n  Sample session: {session.year} {session.event_name} ({session.session_type})")
             print(f"    Track: {session.track}, Country: {session.country}")
 
         lap = db.query(Lap).filter(Lap.lap_time_ms.isnot(None)).first()
         if lap:
             print(f"\n  Sample lap: lap_id={lap.lap_id}, driver_id={lap.driver_id}")
-            print(f"    Lap {lap.lap_number}: {lap.lap_time_ms}ms ({lap.compound}, tyre_life={lap.tyre_life})")
+            print(
+                f"    Lap {lap.lap_number}: {lap.lap_time_ms}ms "
+                f"({lap.compound}, tyre_life={lap.tyre_life})"
+            )
             print(f"    Fuel-corrected: {lap.fuel_corrected_lap_time_ms}ms, valid={lap.is_valid}")
 
         tel = db.query(TelemetryPoint).first()
         if tel:
             print(f"\n  Sample telemetry: lap_id={tel.lap_id}, dist={tel.distance_m}m")
-            print(f"    Speed: {tel.speed_kmh}km/h, Throttle: {tel.throttle_pct}%, Brake: {tel.brake}, DRS: {tel.drs}")
+            print(
+                f"    Speed: {tel.speed_kmh}km/h, Throttle: {tel.throttle_pct}%, "
+                f"Brake: {tel.brake}, DRS: {tel.drs}"
+            )
 
         meta = db.query(DatasetMetadata).all()
         if meta:

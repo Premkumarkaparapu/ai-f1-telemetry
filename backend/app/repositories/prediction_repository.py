@@ -42,4 +42,3 @@ class PredictionRepository:
             .order_by(Prediction.created_at.desc())
             .all()
         )
-

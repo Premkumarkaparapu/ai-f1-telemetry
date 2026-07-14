@@ -11,7 +11,6 @@ Usage:
 """
 
 import argparse
-import importlib
 import fastf1
 
 from backend.app.core.config import TARGET_SESSIONS
@@ -27,11 +26,10 @@ from backend.app.database.models import (
     Weather,
     Stint,
     Tyre,
-    PitStop,
 )
-from data_pipeline.ingest import ingest_all, load_raw
+from data_pipeline.ingest import ingest_all
 from data_pipeline.transform import transform_session, validate_fuel_correction
-from data_pipeline.features import engineer_features, compute_telemetry_features
+from data_pipeline.features import engineer_features
 
 setup_logging("pipeline.log")
 logger = get_logger(__name__)
@@ -106,10 +104,13 @@ def load_session(year: int, event: str, session_type: str) -> None:
         total_laps_written = 0
         total_tel_written = 0
 
-        driver_codes = laps_df["Driver"].unique() if "Driver" in laps_df.columns else laps_df["DriverNumber"].unique()
+        driver_codes = laps_df["Driver"].unique(
+        ) if "Driver" in laps_df.columns else laps_df["DriverNumber"].unique()
 
         for code in driver_codes:
-            driver_laps = laps_df[laps_df["Driver"] == code] if "Driver" in laps_df.columns else laps_df[laps_df["DriverNumber"] == code]
+            driver_laps = laps_df[laps_df["Driver"] == code] \
+                if "Driver" in laps_df.columns \
+                else laps_df[laps_df["DriverNumber"] == code]
             if driver_laps.empty:
                 continue
 
@@ -137,10 +138,18 @@ def load_session(year: int, event: str, session_type: str) -> None:
                         driver_id=driver_rec.driver_id,
                         session_id=session_rec.session_id,
                         stint_number=int(stint_num),
-                        compound=stint_group["compound"].iloc[0] if "compound" in stint_group.columns else None,
-                        start_lap=int(stint_group["LapNumber"].min()) if "LapNumber" in stint_group.columns else None,
-                        end_lap=int(stint_group["LapNumber"].max()) if "LapNumber" in stint_group.columns else None,
-                        tyre_life_start=int(stint_group["tyre_life"].iloc[0]) if "tyre_life" in stint_group.columns else None,
+                        compound=(
+                            stint_group["compound"].iloc[0]
+                            if "compound" in stint_group.columns else None
+                        ),
+                        start_lap=int(stint_group["LapNumber"].min()
+                                      ) if "LapNumber" in stint_group.columns else None,
+                        end_lap=int(stint_group["LapNumber"].max()
+                                    ) if "LapNumber" in stint_group.columns else None,
+                        tyre_life_start=(
+                            int(stint_group["tyre_life"].iloc[0])
+                            if "tyre_life" in stint_group.columns else None
+                        ),
                     )
                     db.add(stint_rec)
 
@@ -149,8 +158,6 @@ def load_session(year: int, event: str, session_type: str) -> None:
                 lap_num = int(lap_row.get("LapNumber", 0)) if "LapNumber" in lap_row.index else 0
 
                 # Snapshot weather at lap start
-                air_temp = None
-                track_temp = None
                 if not weather_df.empty and "time_ms" in weather_df.columns:
                     # Find the closest weather reading before this lap
                     pass  # simplified for Week 1 — attach session average
@@ -164,8 +171,10 @@ def load_session(year: int, event: str, session_type: str) -> None:
                     sector2_ms=lap_row.get("sector2_ms"),
                     sector3_ms=lap_row.get("sector3_ms"),
                     compound=lap_row.get("compound"),
-                    tyre_life=int(lap_row.get("tyre_life", 0)) if lap_row.get("tyre_life") else None,
-                    stint_number=int(lap_row.get("stint_number", 0)) if lap_row.get("stint_number") else None,
+                    tyre_life=int(lap_row.get("tyre_life", 0)) if lap_row.get(
+                        "tyre_life") else None,
+                    stint_number=int(lap_row.get("stint_number", 0)
+                                     ) if lap_row.get("stint_number") else None,
                     is_pit_lap=bool(lap_row.get("is_pit_lap", False)),
                     is_valid=bool(lap_row.get("is_valid", True)),
                     track_status=str(lap_row.get("track_status", "1")),
@@ -180,8 +189,10 @@ def load_session(year: int, event: str, session_type: str) -> None:
                     tyre_rec = Tyre(
                         lap_id=lap_rec.lap_id,
                         compound=lap_row.get("compound"),
-                        tyre_life=int(lap_row.get("tyre_life", 0)) if lap_row.get("tyre_life") else None,
-                        degradation_factor=float(deg_factor) if deg_factor and not (deg_factor != deg_factor) else None,
+                        tyre_life=int(lap_row.get("tyre_life", 0)) if lap_row.get(
+                            "tyre_life") else None,
+                        degradation_factor=float(deg_factor) if deg_factor and not (
+                            deg_factor != deg_factor) else None,
                     )
                     db.add(tyre_rec)
 
@@ -250,7 +261,6 @@ def main(sessions=None):
         load_session(year, event, session_type)
 
     logger.info("Pipeline complete.")
-
 
 
 if __name__ == "__main__":

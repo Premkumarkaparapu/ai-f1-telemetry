@@ -6,7 +6,6 @@ Both the backend and data pipeline import from here.
 
 import logging
 import logging.handlers
-from pathlib import Path
 
 from backend.app.core.config import LOG_DIR, LOG_LEVEL
 
@@ -41,7 +40,7 @@ def setup_logging(log_file: str = "backend.log") -> logging.Logger:
 
 def get_logger(name: str) -> logging.Logger:
     """Return a named child logger. Use in every module:
-    
+
         logger = get_logger(__name__)
     """
     return logging.getLogger(name)

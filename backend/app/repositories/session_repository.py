@@ -12,12 +12,18 @@ class SessionRepository:
         self.db = db
 
     def get_all(self) -> list[SessionModel]:
-        return self.db.query(SessionModel).order_by(SessionModel.year, SessionModel.event_name).all()
+        return (
+            self.db.query(SessionModel)
+            .order_by(SessionModel.year, SessionModel.event_name)
+            .all()
+        )
 
     def get_by_id(self, session_id: int) -> Optional[SessionModel]:
         return self.db.query(SessionModel).filter(SessionModel.session_id == session_id).first()
 
-    def get_by_year_event(self, year: int, event_name: str, session_type: str) -> Optional[SessionModel]:
+    def get_by_year_event(
+        self, year: int, event_name: str, session_type: str
+    ) -> Optional[SessionModel]:
         return (
             self.db.query(SessionModel)
             .filter(
@@ -54,7 +60,7 @@ class SessionRepository:
             .join(Lap, Lap.driver_id == Driver.driver_id)
             .filter(
                 Driver.session_id == session_id,
-                Lap.is_valid == True,
+                Lap.is_valid.is_(True),
                 Lap.lap_time_ms.isnot(None),
             )
             .group_by(Driver.driver_id)
@@ -84,4 +90,3 @@ class SessionRepository:
                 "position": pos,
             })
         return standings
-
