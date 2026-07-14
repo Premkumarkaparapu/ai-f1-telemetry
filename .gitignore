@@ -23,7 +23,13 @@ ENV/
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 f1_telemetry.db
+
+# ── Temp / one-off files ──────────────────────────────────────────────────────
+*.whl
+gitapi.txt
 
 # ── FastF1 cache & raw data ────────────────────────────────────────────────────
 data_pipeline/cache/
