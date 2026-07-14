@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL / TimescaleDB ────────────────────────────────────────────────
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: f1_db
+    environment:
+      POSTGRES_USER: f1user
+      POSTGRES_PASSWORD: f1pass
+      POSTGRES_DB: f1_telemetry
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U f1user -d f1_telemetry"]
+      interval: 10s
+      retries: 5
+
+  # ── Redis (for future Celery task queue) ────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: f1_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: f1_backend
+    environment:
+      DATABASE_URL: postgresql://f1user:f1pass@db:5432/f1_telemetry
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: INFO
+      TELEMETRY_SAMPLE_RATE: "5"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./data_pipeline/cache:/app/data_pipeline/cache
+      - ./ml/models:/app/ml/models
+      - ./logs:/app/logs
+
+  # ── Celery Worker (placeholder for background jobs) ─────────────────────────
+  # worker:
+  #   build:
+  #     context: ./backend
+  #   command: celery -A app.celery worker --loglevel=info
+  #   depends_on:
+  #     - redis
+  #     - db
+
+volumes:
+  postgres_data:
+  redis_data:
