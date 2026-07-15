@@ -1,73 +1,47 @@
-# ── Python ────────────────────────────────────────────────────────────────────
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
 *.pyo
-*.pyd
-.Python
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
-*.so
-*.dylib
-
-# ── Virtual environments ───────────────────────────────────────────────────────
 .venv/
 venv/
-env/
-ENV/
+*.egg-info/
 
-# ── Database ───────────────────────────────────────────────────────────────────
+# Environment
+.env
+backend/.env
+frontend/.env
+
+# Database — never commit local DB
 *.db
-*.sqlite
-*.sqlite3
 *.db-shm
 *.db-wal
-f1_telemetry.db
+*.sqlite
 
-# ── Temp / one-off files ──────────────────────────────────────────────────────
-*.whl
-gitapi.txt
-
-# ── FastF1 cache & raw data ────────────────────────────────────────────────────
-data_pipeline/cache/
-data_pipeline/raw/
-data_pipeline/processed/
-
-# ── ML model artefacts (large binaries) ───────────────────────────────────────
+# ML model binaries (large — re-train on server)
 ml/models/*.pkl
-ml/models/*.json
 
-# ── Logs ──────────────────────────────────────────────────────────────────────
+# FastF1 raw cache (hundreds of MBs of pickle files)
+data_pipeline/raw/
+data_pipeline/cache/
+cache/
+
+# Python wheel files
+*.whl
+
+# Frontend build output
+frontend/dist/
+frontend/node_modules/
+
+# Logs
 logs/
 *.log
 
-# ── Environment / secrets ─────────────────────────────────────────────────────
-.env
-.env.*
-!.env.example
+# Debug / scratch scripts
+debug_*.py
+check_*.py
+audit_*.py
+audit*.py
 
-# ── Node / Frontend ───────────────────────────────────────────────────────────
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/.npm/
-
-# ── IDE ───────────────────────────────────────────────────────────────────────
-.vscode/
-.idea/
-*.swp
-*.swo
+# OS
 .DS_Store
 Thumbs.db
-
-# ── Pytest ────────────────────────────────────────────────────────────────────
-.pytest_cache/
-.coverage
-htmlcov/
-
-# ── Jupyter ───────────────────────────────────────────────────────────────────
-.ipynb_checkpoints/
-*.ipynb

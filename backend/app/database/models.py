@@ -329,3 +329,30 @@ class Prediction(Base):
         Index("ix_predictions_session_driver", "session_id", "driver_id"),
         Index("ix_predictions_type", "prediction_type"),
     )
+
+
+# ── User Accounts ─────────────────────────────────────────────────────────────
+
+class User(Base):
+    """Platform user account — supports optional login for personalised experience."""
+    __tablename__ = "users"
+
+    user_id          = Column(Integer, primary_key=True, autoincrement=True)
+    username         = Column(String(40),  unique=True, nullable=False, index=True)
+    email            = Column(String(120), unique=True, nullable=False, index=True)
+    hashed_password  = Column(String(128), nullable=False)
+    full_name        = Column(String(100), nullable=True)
+    team_affiliation = Column(String(60),  nullable=True)   # e.g. "Red Bull Racing"
+    bio              = Column(Text,        nullable=True)
+    avatar_color     = Column(String(7),   default="#e8002d")  # hex colour for avatar
+    avatar_initials  = Column(String(4),   nullable=True)     # e.g. "PK"
+    is_active        = Column(Boolean,     default=True)
+    is_admin         = Column(Boolean,     default=False)
+    created_at       = Column(DateTime,    default=func.now())
+    last_login       = Column(DateTime,    nullable=True)
+
+    __table_args__ = (
+        Index("ix_users_email",    "email"),
+        Index("ix_users_username", "username"),
+    )
+

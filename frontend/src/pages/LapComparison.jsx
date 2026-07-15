@@ -1,249 +1,227 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useMemo } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, ReferenceLine,
-} from 'recharts'
-import { api } from '../api'
-import { msToLapTime, CompoundBadge, compoundColor } from '../utils'
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend, AreaChart, Area,
+} from 'recharts';
+import { api } from '../api.js';
+import { msToLapTime, msToDelta, CompoundBadge, compoundColor } from '../utils.jsx';
 
-const CHANNELS = ['speed_kmh', 'throttle_pct', 'brake', 'drs', 'rpm', 'gear']
-const CHANNEL_LABELS = {
-  speed_kmh:    'Speed (km/h)',
-  throttle_pct: 'Throttle (%)',
-  brake:        'Brake',
-  drs:          'DRS',
-  rpm:          'RPM',
-  gear:         'Gear',
-}
-
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border-hi)', borderRadius: 6, padding: '8px 12px', fontSize: 12 }}>
-      <div style={{ color: 'var(--text-2)', marginBottom: 6 }}>{label?.toFixed(0)} m</div>
-      {payload.map(p => (
-        <div key={p.dataKey} style={{ color: p.color, display: 'flex', gap: 12, justifyContent: 'space-between' }}>
-          <span>{p.name}</span>
-          <span style={{ fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-            {typeof p.value === 'boolean' ? (p.value ? 'ON' : 'OFF') : p.value?.toFixed(1)}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
+const COLORS = { 1: '#60a5fa', 2: '#f87171' };
 
 export default function LapComparison() {
-  const [sessions, setSessions]   = useState([])
-  const [selSess, setSelSess]     = useState(null)
-  const [drivers, setDrivers]     = useState([])
-  const [d1, setD1] = useState(null)
-  const [d2, setD2] = useState(null)
-  const [laps1, setLaps1]         = useState([])
-  const [laps2, setLaps2]         = useState([])
-  const [selLap1, setSelLap1]     = useState(null)
-  const [selLap2, setSelLap2]     = useState(null)
-  const [channel, setChannel]     = useState('speed_kmh')
-  const [compareData, setCompare] = useState(null)
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState(null)
+  const [drivers, setDrivers] = useState([]);
+  const [d1Id, setD1Id] = useState(''); const [d2Id, setD2Id] = useState('');
+  const [laps1, setLaps1] = useState([]); const [laps2, setLaps2] = useState([]);
+  const [lap1Id, setLap1Id] = useState(''); const [lap2Id, setLap2Id] = useState('');
+  const [tel1, setTel1] = useState([]); const [tel2, setTel2] = useState([]);
+  const [tab, setTab] = useState('speed');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.sessions().then(s => { setSessions(s); if (s.length) setSelSess(s[0].session_id) }).catch(() => {})
-  }, [])
+    api.getDrivers(1).then(d => {
+      setDrivers(d);
+      if (d.length > 0) setD1Id(String(d[0].driver_id));
+      if (d.length > 1) setD2Id(String(d[1].driver_id));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    if (!selSess) return
-    api.drivers(selSess).then(d => { setDrivers(d); setD1(d[0]?.driver_id); setD2(d[1]?.driver_id) }).catch(() => {})
-  }, [selSess])
-
-  useEffect(() => { if (d1) api.laps(d1, true).then(l => { setLaps1(l); setSelLap1(l[0]?.lap_id) }).catch(() => {}) }, [d1])
-  useEffect(() => { if (d2) api.laps(d2, true).then(l => { setLaps2(l); setSelLap2(l[0]?.lap_id) }).catch(() => {}) }, [d2])
-
-  function runComparison() {
-    if (!selLap1 || !selLap2) return
-    setLoading(true)
-    setError(null)
-    api.compareLaps(selLap1, selLap2)
-      .then(data => {
-        // Merge by distance
-        const map = {}
-        data.telemetry_1.forEach(p => {
-          const d = Math.round(p.distance_m)
-          map[d] = { distance: d, driver1: p[channel] }
-        })
-        data.telemetry_2.forEach(p => {
-          const d = Math.round(p.distance_m)
-          if (!map[d]) map[d] = { distance: d }
-          map[d].driver2 = p[channel]
-        })
-        const merged = Object.values(map).sort((a, b) => a.distance - b.distance)
-        setCompare({ merged, meta: data })
-        setLoading(false)
-      })
-      .catch(e => { setError(e.message); setLoading(false) })
-  }
+    if (!d1Id) return;
+    api.getLaps(d1Id).then(l => {
+      const valid = l.filter(x => x.is_valid && x.lap_time_ms).sort((a,b) => a.lap_number - b.lap_number);
+      setLaps1(valid);
+      if (valid.length) {
+        const fastest = valid.reduce((a,b) => a.lap_time_ms < b.lap_time_ms ? a : b);
+        setLap1Id(String(fastest.lap_id));
+      }
+    }).catch(() => {});
+  }, [d1Id]);
 
   useEffect(() => {
-    if (compareData) runComparison()
-  }, [channel])
+    if (!d2Id) return;
+    api.getLaps(d2Id).then(l => {
+      const valid = l.filter(x => x.is_valid && x.lap_time_ms).sort((a,b) => a.lap_number - b.lap_number);
+      setLaps2(valid);
+      if (valid.length) {
+        const fastest = valid.reduce((a,b) => a.lap_time_ms < b.lap_time_ms ? a : b);
+        setLap2Id(String(fastest.lap_id));
+      }
+    }).catch(() => {});
+  }, [d2Id]);
 
-  const d1info = drivers.find(d => d.driver_id === d1)
-  const d2info = drivers.find(d => d.driver_id === d2)
-  const lap1info = laps1.find(l => l.lap_id === selLap1)
-  const lap2info = laps2.find(l => l.lap_id === selLap2)
+  useEffect(() => {
+    if (!lap1Id) { setTel1([]); return; }
+    api.getTelemetry(lap1Id).then(setTel1).catch(() => setTel1([]));
+  }, [lap1Id]);
 
-  const color1 = d1info?.team_color || '#E8002D'
-  const color2 = d2info?.team_color || '#00D2BE'
+  useEffect(() => {
+    if (!lap2Id) { setTel2([]); return; }
+    api.getTelemetry(lap2Id).then(setTel2).catch(() => setTel2([]));
+  }, [lap2Id]);
+
+  const lap1 = useMemo(() => laps1.find(l => String(l.lap_id) === lap1Id), [laps1, lap1Id]);
+  const lap2 = useMemo(() => laps2.find(l => String(l.lap_id) === lap2Id), [laps2, lap2Id]);
+  const drv1 = useMemo(() => drivers.find(d => String(d.driver_id) === d1Id), [drivers, d1Id]);
+  const drv2 = useMemo(() => drivers.find(d => String(d.driver_id) === d2Id), [drivers, d2Id]);
+
+  const chartData = useMemo(() => {
+    if (!tel1.length) return [];
+    const step = Math.max(1, Math.floor(tel1.length / 300));
+    return tel1.filter((_, i) => i % step === 0).map((p, i) => {
+      const p2 = tel2[i * step];
+      return {
+        dist: Math.round(p.distance ?? 0),
+        speed1: +(p.speed ?? 0).toFixed(1),
+        throttle1: +(p.throttle ?? 0).toFixed(1),
+        brake1: +((p.brake ?? 0) * 100).toFixed(1),
+        gear1: p.gear ?? 0,
+        speed2: p2 ? +(p2.speed ?? 0).toFixed(1) : null,
+        throttle2: p2 ? +(p2.throttle ?? 0).toFixed(1) : null,
+        brake2: p2 ? +((p2.brake ?? 0) * 100).toFixed(1) : null,
+        gear2: p2 ? (p2.gear ?? 0) : null,
+        delta: p2 ? +((p.speed ?? 0) - (p2.speed ?? 0)).toFixed(1) : null,
+      };
+    });
+  }, [tel1, tel2]);
+
+  const c1 = drv1?.code || 'DRV1';
+  const c2 = drv2?.code || 'DRV2';
 
   return (
-    <>
+    <div className="content-area">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Lap Comparison</h1>
-          <p className="page-subtitle">Overlay telemetry traces for two laps</p>
+          <div className="page-title">⚡ Lap Comparison</div>
+          <div className="page-desc">Overlay telemetry traces for any two drivers side-by-side</div>
         </div>
       </div>
 
-      <div className="page-body">
-        {/* Controls */}
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
-            <div>
-              <label>Session</label>
-              <select value={selSess || ''} onChange={e => setSelSess(Number(e.target.value))}>
-                {sessions.map(s => <option key={s.session_id} value={s.session_id}>{s.year} {s.event_name}</option>)}
-              </select>
+      {/* Driver / Lap selectors */}
+      <div className="grid-2" style={{ marginBottom: 10 }}>
+        {[
+          { label: 'Driver 1', color: '#60a5fa', dId: d1Id, setDId: setD1Id, lapId: lap1Id, setLapId: setLap1Id, laps: laps1 },
+          { label: 'Driver 2', color: '#f87171', dId: d2Id, setDId: setD2Id, lapId: lap2Id, setLapId: setLap2Id, laps: laps2 },
+        ].map(({ label, color, dId, setDId, lapId, setLapId, laps }) => (
+          <div key={label} className="card">
+            <div className="card-header">
+              <span className="card-title" style={{ color }}>{label}</span>
             </div>
-            <div>
-              <label>Driver 1</label>
-              <select value={d1 || ''} onChange={e => setD1(Number(e.target.value))}>
+            <div className="card-body" style={{ display: 'flex', gap: 10 }}>
+              <select className="filter-select" style={{ flex: 1 }} value={dId} onChange={e => setDId(e.target.value)}>
                 {drivers.map(d => <option key={d.driver_id} value={d.driver_id}>{d.code} — {d.team}</option>)}
               </select>
-            </div>
-            <div>
-              <label>Lap 1</label>
-              <select value={selLap1 || ''} onChange={e => setSelLap1(Number(e.target.value))}>
-                {laps1.map(l => (
-                  <option key={l.lap_id} value={l.lap_id}>
-                    Lap {l.lap_number} — {msToLapTime(l.lap_time_ms)} ({l.compound})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label>Driver 2</label>
-              <select value={d2 || ''} onChange={e => setD2(Number(e.target.value))}>
-                {drivers.map(d => <option key={d.driver_id} value={d.driver_id}>{d.code} — {d.team}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Lap 2</label>
-              <select value={selLap2 || ''} onChange={e => setSelLap2(Number(e.target.value))}>
-                {laps2.map(l => (
-                  <option key={l.lap_id} value={l.lap_id}>
-                    Lap {l.lap_number} — {msToLapTime(l.lap_time_ms)} ({l.compound})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label>Channel</label>
-              <select value={channel} onChange={e => setChannel(e.target.value)}>
-                {CHANNELS.map(c => <option key={c} value={c}>{CHANNEL_LABELS[c]}</option>)}
+              <select className="filter-select" style={{ flex: 1 }} value={lapId} onChange={e => setLapId(e.target.value)}>
+                {laps.map(l => <option key={l.lap_id} value={l.lap_id}>Lap {l.lap_number} — {msToLapTime(l.lap_time_ms)}</option>)}
               </select>
             </div>
           </div>
-          <div style={{ marginTop: 16 }}>
-            <button className="btn btn-primary" onClick={runComparison} disabled={loading}>
-              {loading ? '⟳ Loading…' : '⇌ Compare Laps'}
-            </button>
-          </div>
-        </div>
+        ))}
+      </div>
 
-        {error && <div className="empty"><span className="empty-icon">⚠️</span>{error}</div>}
-
-        {/* Lap header */}
-        {compareData && (
-          <>
-            <div className="grid-2" style={{ marginBottom: 20 }}>
-              {[
-                { info: d1info, lap: lap1info, color: color1 },
-                { info: d2info, lap: lap2info, color: color2 },
-              ].map(({ info, lap, color }, i) => (
-                <div key={i} className="card" style={{ borderColor: color + '55' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: 'JetBrains Mono' }}>
-                        {info?.code || '???'}
+      {/* Lap info cards */}
+      {(lap1 || lap2) && (
+        <div className="grid-2" style={{ marginBottom: 10 }}>
+          {[{ lap: lap1, color: '#60a5fa', code: c1 }, { lap: lap2, color: '#f87171', code: c2 }].map(({ lap, color, code }) => (
+            <div key={code} className="card">
+              <div className="card-header">
+                <span className="card-title" style={{ color }}>{code}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color }}>{msToLapTime(lap?.lap_time_ms)}</span>
+              </div>
+              {lap && (
+                <div className="card-body">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, textAlign: 'center' }}>
+                    {[['Sector 1', lap.sector1_ms], ['Sector 2', lap.sector2_ms], ['Sector 3', lap.sector3_ms]].map(([k, v]) => (
+                      <div key={k}>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{k}</div>
+                        <div style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color }}>{msToLapTime(v)}</div>
                       </div>
-                      <div style={{ color: 'var(--text-2)', fontSize: 12 }}>{info?.team}</div>
-                    </div>
-                    {lap && <CompoundBadge compound={lap.compound} />}
+                    ))}
                   </div>
-                  <div style={{ marginTop: 12, display: 'flex', gap: 20 }}>
-                    <div>
-                      <div style={{ color: 'var(--text-2)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Lap Time</div>
-                      <div className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{msToLapTime(lap?.lap_time_ms)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'var(--text-2)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tyre Age</div>
-                      <div className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{lap?.tyre_life ?? '—'} laps</div>
-                    </div>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'center' }}>
+                    <CompoundBadge compound={lap.compound} size={20} />
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{lap.compound} · {lap.tyre_life} laps old</span>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
+          ))}
+        </div>
+      )}
 
-            {/* Chart */}
-            <div className="chart-wrap">
-              <div className="chart-title">
-                📊 {CHANNEL_LABELS[channel]} vs Distance
-              </div>
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={compareData.merged} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis
-                    dataKey="distance"
-                    tick={{ fill: 'var(--text-2)', fontSize: 11 }}
-                    tickFormatter={v => `${(v / 1000).toFixed(1)}km`}
-                    stroke="var(--border)"
-                  />
-                  <YAxis tick={{ fill: 'var(--text-2)', fontSize: 11 }} stroke="var(--border)" />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend
-                    formatter={(v) => <span style={{ color: 'var(--text-1)', fontSize: 12 }}>{v}</span>}
-                  />
-                  <Line
-                    dataKey="driver1"
-                    name={d1info?.code || 'Driver 1'}
-                    stroke={color1}
-                    dot={false}
-                    strokeWidth={2}
-                    connectNulls
-                  />
-                  <Line
-                    dataKey="driver2"
-                    name={d2info?.code || 'Driver 2'}
-                    stroke={color2}
-                    dot={false}
-                    strokeWidth={2}
-                    strokeDasharray="6 3"
-                    connectNulls
-                  />
+      {/* Tab chart */}
+      <div className="card">
+        <div className="card-header">
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[['speed', 'Speed Trace'], ['throttle', 'Throttle & Brake'], ['gear', 'Gear Map']].map(([id, label]) => (
+              <button key={id} onClick={() => setTab(id)}
+                style={{ padding: '4px 12px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                  background: tab === id ? 'var(--f1-red)' : 'var(--bg-secondary)', color: tab === id ? 'white' : 'var(--text-secondary)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {[[c1, '#60a5fa'], [c2, '#f87171']].map(([code, color]) => (
+              <span key={code} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 12, height: 2, background: color }} />
+                <span style={{ fontSize: 9, color }}>{code}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="card-body">
+          {!chartData.length
+            ? <div className="empty-state">Select two drivers and laps to compare telemetry</div>
+            : (
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={chartData} margin={{ top: 4, right: 12, bottom: 16, left: 2 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(48,54,61,0.45)" vertical={false} />
+                  <XAxis dataKey="dist" tick={{ fontSize: 8, fill: '#6e7681', fontFamily: 'monospace' }} tickLine={false}
+                    label={{ value: 'Distance (m)', position: 'insideBottom', offset: -10, fontSize: 8, fill: '#6e7681' }} />
+                  <YAxis tick={{ fontSize: 8, fill: '#6e7681', fontFamily: 'monospace' }} tickLine={false} axisLine={false} width={30} />
+                  <Tooltip contentStyle={{ background: 'rgba(22,27,34,0.97)', border: '1px solid rgba(48,54,61,0.9)', borderRadius: 4, fontSize: 10 }} />
+                  <Legend wrapperStyle={{ fontSize: 9 }} />
+                  {tab === 'speed' && <>
+                    <Line type="monotone" dataKey="speed1" stroke="#60a5fa" strokeWidth={1.5} dot={false} name={`${c1} Speed`} />
+                    <Line type="monotone" dataKey="speed2" stroke="#f87171" strokeWidth={1.5} dot={false} name={`${c2} Speed`} />
+                  </>}
+                  {tab === 'throttle' && <>
+                    <Line type="monotone" dataKey="throttle1" stroke="#60a5fa" strokeWidth={1.5} dot={false} name={`${c1} Throttle`} />
+                    <Line type="monotone" dataKey="throttle2" stroke="#f87171" strokeWidth={1.5} dot={false} name={`${c2} Throttle`} />
+                    <Line type="monotone" dataKey="brake1" stroke="#60a5fa" strokeWidth={1} strokeDasharray="4 2" dot={false} name={`${c1} Brake`} />
+                    <Line type="monotone" dataKey="brake2" stroke="#f87171" strokeWidth={1} strokeDasharray="4 2" dot={false} name={`${c2} Brake`} />
+                  </>}
+                  {tab === 'gear' && <>
+                    <Line type="stepAfter" dataKey="gear1" stroke="#60a5fa" strokeWidth={1.5} dot={false} name={`${c1} Gear`} />
+                    <Line type="stepAfter" dataKey="gear2" stroke="#f87171" strokeWidth={1.5} dot={false} name={`${c2} Gear`} />
+                  </>}
                 </LineChart>
               </ResponsiveContainer>
-            </div>
-          </>
-        )}
-
-        {!compareData && !loading && !error && (
-          <div className="empty">
-            <span className="empty-icon">⇌</span>
-            <span>Select two laps and click Compare</span>
-          </div>
-        )}
+            )}
+        </div>
       </div>
-    </>
-  )
+
+      {/* Delta area */}
+      {chartData.length > 0 && (
+        <div className="card" style={{ marginTop: 10 }}>
+          <div className="card-header">
+            <span className="card-title">Speed Delta — {c1} vs {c2}</span>
+            <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>positive = {c1} faster</span>
+          </div>
+          <div className="card-body">
+            <ResponsiveContainer width="100%" height={100}>
+              <AreaChart data={chartData} margin={{ top: 4, right: 12, bottom: 16, left: 2 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(48,54,61,0.45)" vertical={false} />
+                <XAxis dataKey="dist" tick={{ fontSize: 8, fill: '#6e7681', fontFamily: 'monospace' }} tickLine={false}
+                  label={{ value: 'Distance (m)', position: 'insideBottom', offset: -10, fontSize: 8, fill: '#6e7681' }} />
+                <YAxis tick={{ fontSize: 8, fill: '#6e7681', fontFamily: 'monospace' }} tickLine={false} axisLine={false} width={30} />
+                <Tooltip contentStyle={{ background: 'rgba(22,27,34,0.97)', border: '1px solid rgba(48,54,61,0.9)', borderRadius: 4, fontSize: 10 }} />
+                <Area type="monotone" dataKey="delta" stroke="#34d399" fill="rgba(52,211,153,0.15)" name="Δ Speed (km/h)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

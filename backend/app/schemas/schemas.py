@@ -66,23 +66,23 @@ class LapOut(BaseModel):
 # ── Telemetry ─────────────────────────────────────────────────────────────────
 
 class TelemetryPointOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    id: int
-    lap_id: int
-    time_ms: Optional[int]
-    distance_m: Optional[float]
-    speed_kmh: Optional[float]
-    rpm: Optional[int]
-    gear: Optional[int]
-    throttle_pct: Optional[float]
-    brake: Optional[bool]
-    drs: Optional[bool]
-    x: Optional[float]
-    y: Optional[float]
-    z: Optional[float]
-    status: Optional[str]
-    source: Optional[str]
+    id: Optional[int] = None
+    lap_id: Optional[int] = None
+    time_ms: Optional[int] = None
+    distance_m: Optional[float] = None
+    speed_kmh: Optional[float] = None
+    rpm: Optional[float] = None   # stored as float from mean() aggregation
+    gear: Optional[float] = None  # stored as float from mean() aggregation
+    throttle_pct: Optional[float] = None
+    brake: Optional[bool] = None
+    drs: Optional[bool] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    z: Optional[float] = None
+    status: Optional[str] = None
+    source: Optional[str] = None
 
 
 class TelemetrySummaryOut(BaseModel):

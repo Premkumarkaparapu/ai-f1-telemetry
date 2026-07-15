@@ -18,6 +18,13 @@ DATABASE_URL: str = os.getenv(
     f"sqlite:///{ROOT_DIR / 'f1_telemetry.db'}",
 )
 
+# ── Production ────────────────────────────────────────────────────────────────
+CORS_ORIGINS: list[str] = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+    if o.strip()
+]
+
 # ── Data pipeline paths ────────────────────────────────────────────────────────
 CACHE_DIR: Path = Path(os.getenv("CACHE_DIR", str(ROOT_DIR / "data_pipeline" / "cache")))
 RAW_DIR: Path = ROOT_DIR / "data_pipeline" / "raw"
@@ -50,9 +57,24 @@ FUEL_EFFECT_SEC_PER_LAP: float = float(
 
 # ── Sessions to ingest ────────────────────────────────────────────────────────
 # Format: (year, event_name, session_type)
-# Chosen to cover distinct circuit archetypes for more generalisable ML models.
+# 2023 originals (circuit archetypes for ML baseline)
 TARGET_SESSIONS: list[tuple[int, str, str]] = [
-    (2023, "Italian Grand Prix", "R"),    # Monza — high-speed, low-downforce
-    (2023, "Monaco Grand Prix", "R"),     # Monaco — street, undercut-heavy
-    (2023, "Dutch Grand Prix", "R"),      # Zandvoort — mixed conditions
+    # ── 2023 Baseline ─────────────────────────────────────────────────
+    (2023, "Italian Grand Prix",       "R"),   # Monza  — high-speed, low-df
+    (2023, "Monaco Grand Prix",        "R"),   # Monaco — street, undercut
+    (2023, "Dutch Grand Prix",         "R"),   # Zandvoort — mixed
+
+    # ── 2025 Full Season (completed through British GP, Round 12) ────
+    (2025, "Australian Grand Prix",    "R"),   # R01 — Melbourne
+    (2025, "Chinese Grand Prix",       "R"),   # R02 — Shanghai (Sprint)
+    (2025, "Japanese Grand Prix",      "R"),   # R03 — Suzuka
+    (2025, "Bahrain Grand Prix",       "R"),   # R04 — Sakhir
+    (2025, "Saudi Arabian Grand Prix", "R"),   # R05 — Jeddah
+    (2025, "Miami Grand Prix",         "R"),   # R06 — Miami (Sprint)
+    (2025, "Emilia Romagna Grand Prix","R"),   # R07 — Imola
+    (2025, "Monaco Grand Prix",        "R"),   # R08 — Monaco
+    (2025, "Spanish Grand Prix",       "R"),   # R09 — Barcelona
+    (2025, "Canadian Grand Prix",      "R"),   # R10 — Montreal
+    (2025, "Austrian Grand Prix",      "R"),   # R11 — Red Bull Ring (Sprint)
+    (2025, "British Grand Prix",       "R"),   # R12 — Silverstone
 ]

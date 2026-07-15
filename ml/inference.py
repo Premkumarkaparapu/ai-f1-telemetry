@@ -1,34 +1,53 @@
 """
 ML Inference — AI F1 Telemetry Platform
 ========================================
-Loads trained model artefacts and exposes clean prediction functions
-used by the FastAPI prediction service.
+Loads trained model artefacts and exposes clean prediction functions.
 
-All functions degrade gracefully when models are not yet trained:
+All functions degrade gracefully:
   - laptime_predictor.pkl missing → falls back to compound_means.json
-  - compound_means.json missing   → returns hard-coded defaults
-  - degradation ridge missing     → falls back to XGB → falls back to linear estimate
+  - compound_means.json missing   → hard-coded realistic defaults
+  - degradation ridge missing     → XGB → linear estimate with track context
 """
 
 import json
 import logging
+import math
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# ── Config (import-safe) ──────────────────────────────────────────────────────
 try:
     from backend.app.core.config import MODEL_PATH
 except Exception:
     MODEL_PATH = Path(__file__).resolve().parent / "models"
 
+# ── Encoding tables (must match train.py) ────────────────────────────────────
 COMPOUND_ENCODE = {"SOFT": 0, "MEDIUM": 1, "HARD": 2, "INTERMEDIATE": 3, "WET": 4}
-DEFAULT_MEANS = {"SOFT": 82000.0, "MEDIUM": 85000.0, "HARD": 88000.0,
-                 "INTERMEDIATE": 95000.0, "WET": 105000.0}
+SESSION_ENCODE  = {"R": 0, "Q": 1, "FP1": 2, "FP2": 3, "FP3": 4, "S": 5, "SQ": 6}
+
+# Realistic per-compound defaults (ms) – fallback only
+DEFAULT_MEANS = {
+    "SOFT":         {"mean": 82000.0,  "std": 3500.0},
+    "MEDIUM":       {"mean": 85500.0,  "std": 4000.0},
+    "HARD":         {"mean": 88000.0,  "std": 4500.0},
+    "INTERMEDIATE": {"mean": 96000.0,  "std": 5000.0},
+    "WET":          {"mean": 104000.0, "std": 6000.0},
+}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _load_meta() -> dict:
+    """Load feature_meta.json (track encodings, compound stats). Returns {} if missing."""
+    path = MODEL_PATH / "feature_meta.json"
+    if path.exists():
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
 
 def load_model(model_name: str):
     """Load a joblib-serialised model from MODEL_PATH/{model_name}.pkl."""
@@ -39,16 +58,65 @@ def load_model(model_name: str):
     return joblib.load(path)
 
 
-def get_compound_means() -> dict[str, float]:
-    """Return mean lap time per compound from compound_means.json, or hard-coded defaults."""
+def get_compound_means() -> dict:
+    """Return compound stats dict from compound_means.json."""
     path = MODEL_PATH / "compound_means.json"
     if path.exists():
         try:
             with open(path) as f:
-                return json.load(f)
+                data = json.load(f)
+            # Normalise: new format has {compound: {mean,std,..}}, old has {compound: float}
+            out = {}
+            for k, v in data.items():
+                if isinstance(v, dict):
+                    out[k] = v
+                else:
+                    out[k] = {"mean": float(v), "std": 3000.0}
+            return out
         except Exception:
             pass
     return DEFAULT_MEANS.copy()
+
+
+def _track_enc(track: str, meta: dict) -> int:
+    """Look up track encoding from meta. Returns median enc if unknown."""
+    enc_map = meta.get("track_encode", {})
+    if track in enc_map:
+        return int(enc_map[track])
+    # Fuzzy match by substring
+    track_lower = track.lower()
+    for k, v in enc_map.items():
+        if track_lower in k.lower() or k.lower() in track_lower:
+            return int(v)
+    # Fallback: median
+    vals = list(enc_map.values())
+    return int(sorted(vals)[len(vals)//2]) if vals else 10
+
+
+def _build_feature_row(
+    tyre_life: int,
+    compound: str,
+    lap_number: int,
+    stint_number: int,
+    session_type: str,
+    track: str,
+    meta: dict,
+) -> list:
+    """Build the exact feature vector expected by laptime_predictor."""
+    import math
+    c_enc = COMPOUND_ENCODE.get(compound.upper(), 1)
+    s_enc = SESSION_ENCODE.get(session_type.upper(), 0)
+    t_enc = _track_enc(track, meta)
+    tl_sq   = tyre_life ** 2
+    tl_root = math.sqrt(max(tyre_life, 0))
+    is_first = int(lap_number == 1)
+    is_out   = int(tyre_life <= 2 and lap_number > 1)
+
+    return [[
+        tyre_life, tl_sq, tl_root,
+        c_enc, s_enc, t_enc,
+        lap_number, float(stint_number), is_first, is_out,
+    ]]
 
 
 # ── Lap Time Prediction ───────────────────────────────────────────────────────
@@ -58,138 +126,137 @@ def predict_lap_time(
     compound: str,
     lap_number: int = 1,
     stint_number: int = 1,
+    session_type: str = "R",
+    track: str = "",
 ) -> float:
     """Predict fuel-corrected lap time in milliseconds.
 
-    Falls back to compound mean if the trained model is unavailable.
+    Returns a unique value per (tyre_life, compound, lap, stint, track, session).
+    Falls back gracefully if model not loaded.
     """
+    import numpy as np
     compound_upper = compound.upper()
-    compound_enc = COMPOUND_ENCODE.get(compound_upper, 1)
-    tyre_life_sq = tyre_life ** 2
-    is_first_lap = int(lap_number == 1)
-
-    features = [[tyre_life, compound_enc, tyre_life_sq, lap_number, is_first_lap, stint_number]]
+    meta = _load_meta()
 
     try:
         model = load_model("laptime_predictor")
-        import numpy as np
-        pred = float(model.predict(np.array(features))[0])
-        return max(pred, 60_000)  # floor at 60 s
+        feats = _build_feature_row(tyre_life, compound_upper, lap_number,
+                                   stint_number, session_type, track, meta)
+        pred = float(model.predict(np.array(feats))[0])
+        return max(pred, 60_000.0)
     except FileNotFoundError:
-        logger.debug("laptime_predictor not found — using compound mean fallback")
+        logger.debug("laptime_predictor not found — compound mean fallback")
     except Exception as e:
-        logger.warning("laptime_predictor inference error: %s", e)
+        logger.warning("laptime_predictor error: %s", e)
 
+    # Fallback: compound mean + tyre-age degradation curve
     means = get_compound_means()
-    base = means.get(compound_upper, 90_000.0)
-    # Add a simple tyre-age penalty: ~80 ms/lap after lap 5
-    penalty = max(0, (tyre_life - 5)) * 80
-    return base + penalty
+    stats = means.get(compound_upper, {"mean": 90_000.0, "std": 3000.0})
+    base  = stats["mean"]
+    # Quadratic degradation: ~50ms/lap initially, accelerating after lap 20
+    age_penalty = max(0, tyre_life - 3) * 55 + max(0, tyre_life - 20) ** 1.5 * 10
+    return max(base + age_penalty, 60_000.0)
 
 
 # ── Tire Degradation Curve ────────────────────────────────────────────────────
 
 def predict_tire_degradation(
     compound: str,
-    tyre_life_range: list[int],
-) -> list[float]:
-    """Return predicted lap times (ms) for each tyre life value in the range.
+    tyre_life_range: list,
+    track: str = "",
+    session_type: str = "R",
+) -> list:
+    """Return predicted lap times (ms) for each tyre life value.
 
-    Priority: Ridge (smooth) → XGB → linear extrapolation from compound mean.
+    Uses per-compound Ridge (smooth) → XGB (contextual) → quadratic fallback.
     """
     import numpy as np
     compound_upper = compound.upper()
+    meta = _load_meta()
 
-    # Try per-compound Ridge first (smoothest curve)
+    # 1. Try per-compound Ridge (smoothest curve)
     try:
         model = load_model(f"tire_degradation_ridge_{compound_upper}")
         X = np.array(tyre_life_range).reshape(-1, 1)
         preds = model.predict(X).tolist()
-        return [max(p, 60_000) for p in preds]
+        return [max(p, 60_000.0) for p in preds]
     except FileNotFoundError:
         pass
     except Exception as e:
-        logger.warning("Ridge degradation error: %s", e)
+        logger.warning("Ridge degradation error for %s: %s", compound_upper, e)
 
-    # Try global XGB
+    # 2. Try global XGB with track context
     try:
         model = load_model("tire_degradation_xgb")
-        compound_enc = COMPOUND_ENCODE.get(compound_upper, 1)
+        c_enc = COMPOUND_ENCODE.get(compound_upper, 1)
+        t_enc = _track_enc(track, meta)
         X = np.array([
-            [life, compound_enc, life ** 2]
+            [life, life**2, math.sqrt(max(life,0)), c_enc, t_enc]
             for life in tyre_life_range
         ])
         preds = model.predict(X).tolist()
-        return [max(p, 60_000) for p in preds]
+        return [max(p, 60_000.0) for p in preds]
     except FileNotFoundError:
         pass
     except Exception as e:
         logger.warning("XGB degradation error: %s", e)
 
-    # Linear fallback from compound mean
+    # 3. Quadratic fallback from compound mean
     means = get_compound_means()
-    base = means.get(compound_upper, 90_000.0)
-    return [max(base + max(0, life - 5) * 80, 60_000) for life in tyre_life_range]
+    stats = means.get(compound_upper, {"mean": 90_000.0, "std": 3000.0})
+    base  = stats["mean"]
+    return [
+        max(base + max(0, life - 3) * 55 + max(0, life - 20)**1.5 * 10, 60_000.0)
+        for life in tyre_life_range
+    ]
 
 
 # ── Race Strategy Simulation ──────────────────────────────────────────────────
 
 def simulate_race_strategy(
     total_laps: int,
-    pit_laps: list[int],
-    compounds: list[str],
-    actual_laps: dict[int, int],
+    pit_laps: list,
+    compounds: list,
+    actual_laps: dict,
     pit_time_loss_ms: int = 25_000,
+    track: str = "",
+    session_type: str = "R",
 ) -> dict:
     """Simulate total race time for a given pit strategy.
 
-    Args:
-        total_laps: total laps in the race
-        pit_laps: lap numbers where a pit stop occurs
-        compounds: compound for each stint (len = len(pit_laps) + 1)
-        actual_laps: {lap_number: lap_time_ms} from DB (may be partial)
-        pit_time_loss_ms: time lost in the pit lane
-
-    Returns:
-        dict with total_race_time_ms, per_lap_times_ms, pit_stops, compounds_used
+    Uses actual DB lap times where available, predicts the rest per-lap.
     """
     pit_set = set(pit_laps)
-
-    # Build stint assignment: which compound applies to each lap
-    # stint 0 = before first pit, stint 1 = between pit[0] and pit[1], etc.
     stint_boundaries = [0] + sorted(pit_laps) + [total_laps + 1]
-    lap_compound: dict[int, str] = {}
+    lap_compound: dict = {}
     for i in range(len(compounds)):
         start = stint_boundaries[i] + 1
-        end = stint_boundaries[i + 1]
-        cmp = compounds[i].upper() if i < len(compounds) else "MEDIUM"
+        end   = stint_boundaries[min(i + 1, len(stint_boundaries) - 1)]
+        cmp   = compounds[i].upper() if i < len(compounds) else "MEDIUM"
         for lap_num in range(start, end + 1):
             lap_compound[lap_num] = cmp
 
-    per_lap_times: list[float] = []
-    tyre_age_by_stint: dict[int, int] = {}  # tracks tyre age per stint
-
-    # Map lap_num → stint index
     def stint_for_lap(ln: int) -> int:
         for idx in range(len(pit_laps) + 1):
-            start = stint_boundaries[idx] + 1
-            end = stint_boundaries[idx + 1]
-            if start <= ln <= end:
+            if stint_boundaries[idx] + 1 <= ln <= stint_boundaries[idx + 1]:
                 return idx
         return 0
 
-    stint_ages: dict[int, int] = {}
+    per_lap_times: list = []
+    stint_ages: dict = {}
 
     for lap_num in range(1, total_laps + 1):
         stint_idx = stint_for_lap(lap_num)
         stint_ages[stint_idx] = stint_ages.get(stint_idx, 0) + 1
-        tyre_age = stint_ages[stint_idx]
-        compound = lap_compound.get(lap_num, "MEDIUM")
+        tyre_age  = stint_ages[stint_idx]
+        compound  = lap_compound.get(lap_num, "MEDIUM")
 
         if lap_num in actual_laps and actual_laps[lap_num]:
             lap_time = float(actual_laps[lap_num])
         else:
-            lap_time = predict_lap_time(tyre_age, compound, lap_num, stint_idx + 1)
+            lap_time = predict_lap_time(
+                tyre_age, compound, lap_num, stint_idx + 1, session_type, track
+            )
 
         if lap_num in pit_set:
             lap_time += pit_time_loss_ms
@@ -198,9 +265,9 @@ def simulate_race_strategy(
 
     return {
         "total_race_time_ms": sum(per_lap_times),
-        "per_lap_times_ms": per_lap_times,
-        "pit_stops": len(pit_laps),
-        "compounds_used": list(dict.fromkeys(
+        "per_lap_times_ms":   per_lap_times,
+        "pit_stops":          len(pit_laps),
+        "compounds_used":     list(dict.fromkeys(
             [lap_compound.get(n, "MEDIUM") for n in range(1, total_laps + 1)]
         )),
     }
@@ -213,73 +280,61 @@ def predict_pit_window(
     total_laps: int,
     current_compound: str,
     current_tyre_life: int,
+    track: str = "",
+    session_type: str = "R",
 ) -> dict:
-    """Return the recommended pit window based on degradation model + race dynamics.
+    """Return the recommended pit window using degradation model.
 
-    Logic:
-      1. Project lap times staying out (current compound, ageing tyres)
-      2. For each candidate pit lap, estimate total remaining race time after pit
-      3. Return the pit lap that minimises the projected remaining race time
-
-    Returns dict with earliest_lap, optimal_lap, latest_lap, reasoning.
+    Evaluates every candidate pit lap and returns the one that minimises
+    projected remaining race time.
     """
     remaining_laps = total_laps - current_lap
     if remaining_laps <= 0:
-        return {
-            "earliest_lap": current_lap,
-            "optimal_lap": current_lap,
-            "latest_lap": current_lap,
-            "reasoning": "Race is effectively over.",
-        }
+        return {"earliest_lap": current_lap, "optimal_lap": current_lap,
+                "latest_lap": current_lap, "reasoning": "Race effectively over."}
 
-    # Safety constraints
-    earliest_lap = min(current_lap + 2, total_laps - 5)
-    latest_lap = max(earliest_lap + 2, total_laps - 6)
-
+    earliest_lap = min(current_lap + 2, total_laps - 8)
+    latest_lap   = max(earliest_lap + 2, total_laps - 6)
     compound_upper = current_compound.upper()
     fresh_compound = _suggest_next_compound(compound_upper)
 
-    # Evaluate each candidate pit lap
-    best_lap = earliest_lap
+    # Pre-compute stay-out degradation
+    stay_range  = list(range(current_tyre_life + 1,
+                              current_tyre_life + remaining_laps + 2))
+    stay_times  = predict_tire_degradation(compound_upper, stay_range, track, session_type)
+
+    best_lap  = earliest_lap
     best_cost = float("inf")
-    candidate_range = list(range(earliest_lap, latest_lap + 1))
 
-    tyre_life_range_stay = list(range(current_tyre_life + 1,
-                                      current_tyre_life + remaining_laps + 1))
-    stay_out_times = predict_tire_degradation(compound_upper, tyre_life_range_stay)
-
-    for candidate_pit in candidate_range:
-        laps_to_pit = candidate_pit - current_lap
+    for candidate_pit in range(earliest_lap, latest_lap + 1):
+        laps_to_pit   = candidate_pit - current_lap
         laps_after_pit = total_laps - candidate_pit
 
-        # Cost of staying out until pit
-        stay_cost = sum(stay_out_times[:laps_to_pit])
-        # Cost of fresh tyres after pit
+        stay_cost  = sum(stay_times[:laps_to_pit])
         fresh_range = list(range(1, laps_after_pit + 1))
-        fresh_times = predict_tire_degradation(fresh_compound, fresh_range)
-        fresh_cost = sum(fresh_times) + 25_000  # pit lane loss
+        fresh_times = predict_tire_degradation(fresh_compound, fresh_range, track, session_type)
+        fresh_cost  = sum(fresh_times) + 25_000  # pit lane loss
 
         total_cost = stay_cost + fresh_cost
         if total_cost < best_cost:
             best_cost = total_cost
-            best_lap = candidate_pit
+            best_lap  = candidate_pit
 
-    laps_remaining_on_current = current_tyre_life + (best_lap - current_lap)
+    tyre_age_at_pit = current_tyre_life + (best_lap - current_lap)
     reasoning = (
         f"Optimal pit on lap {best_lap} ({best_lap - current_lap} laps away). "
-        f"Current {compound_upper} tyre will be {laps_remaining_on_current} laps old. "
+        f"Current {compound_upper} tyre will be {tyre_age_at_pit} laps old. "
         f"Suggested next compound: {fresh_compound}."
     )
 
     return {
         "earliest_lap": earliest_lap,
-        "optimal_lap": best_lap,
-        "latest_lap": latest_lap,
-        "reasoning": reasoning,
+        "optimal_lap":  best_lap,
+        "latest_lap":   latest_lap,
+        "reasoning":    reasoning,
     }
 
 
 def _suggest_next_compound(current: str) -> str:
-    """Simple escalation: SOFT→MEDIUM→HARD, others stay the same."""
-    escalation = {"SOFT": "MEDIUM", "MEDIUM": "HARD"}
-    return escalation.get(current.upper(), current.upper())
+    """SOFT→MEDIUM→HARD, others stay same."""
+    return {"SOFT": "MEDIUM", "MEDIUM": "HARD"}.get(current.upper(), current.upper())

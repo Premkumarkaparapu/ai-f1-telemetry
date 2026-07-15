@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: f1-telemetry-api
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: f1-telemetry-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://f1-telemetry.vercel.app
+      - key: LOG_LEVEL
+        value: WARNING
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+databases:
+  - name: f1-telemetry-db
+    databaseName: f1_telemetry
+    user: f1user
+    plan: free
+    region: singapore

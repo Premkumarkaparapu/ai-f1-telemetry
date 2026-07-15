@@ -1,281 +1,249 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState, useEffect, useMemo } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine,
-} from 'recharts'
-import { api } from '../api'
-import { msToLapTime, compoundColor, CompoundBadge } from '../utils'
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend, ScatterChart, Scatter,
+} from 'recharts';
+import { api } from '../api.js';
+import { msToLapTime, CompoundBadge, compoundColor } from '../utils.jsx';
+
+const COMPOUNDS = ['SOFT', 'MEDIUM', 'HARD'];
+const COMPOUND_COLORS = { SOFT: '#e8002d', MEDIUM: '#fbbf24', HARD: '#f0f6fc' };
 
 export default function LiveReplay() {
-  const [sessions, setSessions]   = useState([])
-  const [selSess, setSelSess]     = useState(null)
-  const [drivers, setDrivers]     = useState([])
-  const [selDriver, setSelDriver] = useState(null)
-  const [laps, setLaps]           = useState([])
-  const [selLap, setSelLap]       = useState(null)
-  const [telemetry, setTelemetry] = useState([])
-  const [loading, setLoading]     = useState(false)
-  const [playing, setPlaying]     = useState(false)
-  const [progress, setProgress]   = useState(0)   // 0–1
-  const [speed, setSpeed]         = useState(8)    // playback multiplier
-  const animRef = useRef(null)
-  const lastRef = useRef(null)
+  const [sessions, setSessions] = useState([]);
+  const [sessionId, setSessionId] = useState('1');
+  const [drivers, setDrivers] = useState([]);
+  const [driverId, setDriverId] = useState('');
+  const [laps, setLaps] = useState([]);
+  const [compound, setCompound] = useState('SOFT');
+  const [tyreLife, setTyreLife] = useState(10);
+  const [lapNumber, setLapNumber] = useState(20);
+  const [predicted, setPredicted] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [degradationData, setDegradationData] = useState(null);
 
   useEffect(() => {
-    api.sessions().then(s => { setSessions(s); if (s.length) setSelSess(s[0].session_id) }).catch(() => {})
-  }, [])
+    api.getSessions().then(s => { setSessions(s); if (s.length) setSessionId(String(s[0].session_id)); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    if (!selSess) return
-    api.drivers(selSess).then(d => { setDrivers(d); if (d.length) setSelDriver(d[0].driver_id) }).catch(() => {})
-  }, [selSess])
+    if (!sessionId) return;
+    api.getDrivers(sessionId).then(d => {
+      setDrivers(d);
+      if (d.length) setDriverId(String(d[0].driver_id));
+    }).catch(() => {});
+  }, [sessionId]);
 
   useEffect(() => {
-    if (!selDriver) return
-    api.laps(selDriver, true).then(l => { setLaps(l); if (l.length) setSelLap(l[0].lap_id) }).catch(() => {})
-  }, [selDriver])
+    if (!driverId) return;
+    api.getLaps(driverId).then(l => {
+      const valid = l.filter(x => x.is_valid && x.lap_time_ms);
+      setLaps(valid);
+    }).catch(() => {});
+    // Fetch prediction history
+    api.getPredictionHistory(sessionId).then(setHistory).catch(() => setHistory([]));
+  }, [driverId, sessionId]);
 
+  // Load degradation curve whenever compound changes
   useEffect(() => {
-    if (!selLap) return
-    setLoading(true)
-    setPlaying(false)
-    setProgress(0)
-    api.telemetry(selLap)
-      .then(t => { setTelemetry(t); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [selLap])
+    api.getDegradation(compound, 50).then(setDegradationData).catch(() => setDegradationData(null));
+  }, [compound]);
 
-  // Animation loop
-  useEffect(() => {
-    if (!playing) { cancelAnimationFrame(animRef.current); return }
-    function tick(ts) {
-      if (!lastRef.current) lastRef.current = ts
-      const dt = (ts - lastRef.current) / 1000
-      lastRef.current = ts
-      setProgress(p => {
-        const next = p + (dt * speed) / (telemetry.length || 1) * 5
-        if (next >= 1) { setPlaying(false); return 1 }
-        return next
-      })
-      animRef.current = requestAnimationFrame(tick)
-    }
-    lastRef.current = null
-    animRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(animRef.current)
-  }, [playing, speed, telemetry.length])
-
-  const currentIdx = Math.min(
-    Math.floor(progress * telemetry.length),
-    telemetry.length - 1
-  )
-  const currentPt  = telemetry[currentIdx] || {}
-  const visibleData = telemetry.slice(0, currentIdx + 1)
-
-  // Track map path — normalise X/Y to 0-100 viewport
-  const hasXY = telemetry.some(p => p.x != null)
-  let trackPath = null
-  let carPos = null
-  if (hasXY) {
-    const xs = telemetry.map(p => p.x).filter(Boolean)
-    const ys = telemetry.map(p => p.y).filter(Boolean)
-    const minX = Math.min(...xs), maxX = Math.max(...xs)
-    const minY = Math.min(...ys), maxY = Math.max(...ys)
-    const norm = (v, mn, mx) => ((v - mn) / (mx - mn || 1)) * 90 + 5
-
-    const pts = telemetry
-      .filter(p => p.x != null && p.y != null)
-      .map(p => `${norm(p.x, minX, maxX).toFixed(2)},${norm(p.y, minY, maxY).toFixed(2)}`)
-    trackPath = `M ${pts.join(' L ')}`
-
-    if (currentPt.x != null) {
-      carPos = {
-        x: norm(currentPt.x, minX, maxX),
-        y: norm(currentPt.y, minY, maxY),
-      }
+  async function runPrediction() {
+    setLoading(true);
+    try {
+      const result = await api.predict({ session_id: +sessionId, driver_id: +driverId, prediction_type: 'lap_time' });
+      setPredicted(result);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
 
-  const lap = laps.find(l => l.lap_id === selLap)
+  // Actual laps scatter data grouped by compound
+  const actualScatter = useMemo(() => {
+    const byCompound = {};
+    laps.forEach(l => {
+      if (!l.tyre_life || !l.lap_time_ms) return;
+      const c = l.compound ?? 'HARD';
+      if (!byCompound[c]) byCompound[c] = [];
+      byCompound[c].push({ tyre_life: l.tyre_life, lap_time_s: +(l.lap_time_ms / 1000).toFixed(3) });
+    });
+    return byCompound;
+  }, [laps]);
+
+  // ML prediction line for selected compound
+  const predLine = useMemo(() => {
+    if (!degradationData) return [];
+    return (degradationData.tyre_life_values ?? []).map((life, i) => ({
+      tyre_life: life,
+      predicted_s: +((degradationData.predicted_lap_times_ms?.[i] ?? 0) / 1000).toFixed(3),
+    }));
+  }, [degradationData]);
+
+  // Merge for combo chart
+  const comboData = useMemo(() => {
+    const all = {};
+    predLine.forEach(p => { all[p.tyre_life] = { tyre_life: p.tyre_life, predicted_s: p.predicted_s }; });
+    (actualScatter[compound] ?? []).forEach(p => {
+      if (!all[p.tyre_life]) all[p.tyre_life] = { tyre_life: p.tyre_life };
+      all[p.tyre_life].actual_s = p.lap_time_s;
+    });
+    return Object.values(all).sort((a, b) => a.tyre_life - b.tyre_life);
+  }, [predLine, actualScatter, compound]);
+
+  const drv = useMemo(() => drivers.find(d => String(d.driver_id) === driverId), [drivers, driverId]);
+  const bestLap = useMemo(() => {
+    if (!laps.length) return null;
+    return laps.reduce((a, b) => a.lap_time_ms < b.lap_time_ms ? a : b);
+  }, [laps]);
 
   return (
-    <>
+    <div className="content-area">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Live Replay</h1>
-          <p className="page-subtitle">Scrub through real telemetry data lap-by-lap</p>
+          <div className="page-title">🤖 Lap Time Predictor</div>
+          <div className="page-desc">ML-powered lap time prediction using XGBoost model — actual vs predicted comparison</div>
         </div>
       </div>
 
-      <div className="page-body">
-        {/* Controls */}
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
-            <div>
-              <label>Session</label>
-              <select value={selSess || ''} onChange={e => setSelSess(Number(e.target.value))}>
-                {sessions.map(s => <option key={s.session_id} value={s.session_id}>{s.year} {s.event_name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Driver</label>
-              <select value={selDriver || ''} onChange={e => setSelDriver(Number(e.target.value))}>
-                {drivers.map(d => <option key={d.driver_id} value={d.driver_id}>{d.code} — {d.team}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Lap</label>
-              <select value={selLap || ''} onChange={e => setSelLap(Number(e.target.value))}>
-                {laps.map(l => (
-                  <option key={l.lap_id} value={l.lap_id}>
-                    Lap {l.lap_number} — {msToLapTime(l.lap_time_ms)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label>Playback Speed</label>
-              <select value={speed} onChange={e => setSpeed(Number(e.target.value))}>
-                {[1, 2, 4, 8, 16, 32].map(s => <option key={s} value={s}>{s}×</option>)}
-              </select>
-            </div>
+      {/* Session / Driver / Controls */}
+      <div className="card" style={{ marginBottom: 10 }}>
+        <div className="card-header"><span className="card-title">Model Inputs</span></div>
+        <div className="card-body" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div className="filter-group">
+            <span className="filter-label">Event</span>
+            <select className="filter-select" value={sessionId} onChange={e => setSessionId(e.target.value)}>
+              {sessions.map(s => <option key={s.session_id} value={s.session_id}>{s.event_name} {s.year}</option>)}
+            </select>
           </div>
-        </div>
-
-        {loading && <div className="loading"><div className="spinner" /> Loading telemetry…</div>}
-
-        {!loading && telemetry.length > 0 && (
-          <>
-            {/* Live metric gauges */}
-            <div className="grid-4" style={{ marginBottom: 20 }}>
-              {[
-                { label: 'Speed', value: currentPt.speed_kmh?.toFixed(0), unit: 'km/h', color: currentPt.speed_kmh > 280 ? 'var(--green)' : 'var(--text-0)' },
-                { label: 'Throttle', value: currentPt.throttle_pct?.toFixed(1), unit: '%', color: 'var(--green)' },
-                { label: 'Brake', value: currentPt.brake ? 'ON' : 'OFF', unit: '', color: currentPt.brake ? 'var(--red)' : 'var(--text-2)' },
-                { label: 'Gear', value: currentPt.gear, unit: '', color: 'var(--text-0)' },
-              ].map(g => (
-                <div key={g.label} className="card">
-                  <div className="card-title">{g.label}</div>
-                  <div className="card-value" style={{ color: g.color, fontSize: 30 }}>
-                    {g.value ?? '—'}
-                    {g.unit && <span className="card-unit">{g.unit}</span>}
-                  </div>
-                </div>
+          <div className="filter-group">
+            <span className="filter-label">Driver</span>
+            <select className="filter-select" value={driverId} onChange={e => setDriverId(e.target.value)}>
+              {drivers.map(d => <option key={d.driver_id} value={d.driver_id}>{d.code} — {d.team}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Compound</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {COMPOUNDS.map(c => (
+                <button key={c} onClick={() => setCompound(c)}
+                  style={{ padding: '4px 10px', borderRadius: 4, border: `1px solid ${compound === c ? COMPOUND_COLORS[c] : 'rgba(48,54,61,0.8)'}`,
+                    background: compound === c ? `${COMPOUND_COLORS[c]}22` : 'transparent',
+                    color: compound === c ? COMPOUND_COLORS[c] : 'var(--text-muted)',
+                    cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                  {c}
+                </button>
               ))}
             </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Tyre Life: <span style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{tyreLife}</span></div>
+            <input type="range" min={1} max={50} value={tyreLife} onChange={e => setTyreLife(+e.target.value)}
+              style={{ width: 120, accentColor: COMPOUND_COLORS[compound] }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>Lap #</div>
+            <input type="number" min={1} max={57} value={lapNumber} onChange={e => setLapNumber(+e.target.value)}
+              style={{ width: 60, background: 'rgba(22,27,34,0.8)', border: '1px solid rgba(48,54,61,0.8)',
+                borderRadius: 4, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'monospace' }} />
+          </div>
+          <button className="btn btn-primary" onClick={runPrediction} disabled={loading}>
+            {loading ? '⏳…' : '🤖 Predict Lap Time'}
+          </button>
+        </div>
+      </div>
 
-            <div className="grid-2">
-              {/* Speed trace */}
-              <div className="chart-wrap" style={{ marginTop: 0 }}>
-                <div className="chart-title">Speed Trace</div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={visibleData} margin={{ top: 4, right: 4, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="distance_m" tick={false} stroke="var(--border)" />
-                    <YAxis domain={[0, 380]} tick={{ fill: 'var(--text-2)', fontSize: 10 }} stroke="var(--border)" />
-                    <Tooltip formatter={v => [`${v?.toFixed(1)} km/h`, 'Speed']} contentStyle={{ background: 'var(--bg-2)', border: '1px solid var(--border-hi)', borderRadius: 6, fontSize: 12 }} />
-                    <Line dataKey="speed_kmh" stroke="var(--green)" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-                    {currentPt.distance_m && (
-                      <ReferenceLine x={currentPt.distance_m} stroke="white" strokeDasharray="3 2" />
-                    )}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Track map */}
-              <div className="chart-wrap" style={{ marginTop: 0 }}>
-                <div className="chart-title">Track Position</div>
-                <div className="track-canvas">
-                  {hasXY ? (
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-                      {/* Full track outline */}
-                      <path
-                        d={trackPath}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.12)"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      {/* Completed portion */}
-                      {visibleData.length > 1 && (() => {
-                        const xs = telemetry.map(p => p.x).filter(Boolean)
-                        const ys = telemetry.map(p => p.y).filter(Boolean)
-                        const minX = Math.min(...xs), maxX = Math.max(...xs)
-                        const minY = Math.min(...ys), maxY = Math.max(...ys)
-                        const norm = (v, mn, mx) => ((v - mn) / (mx - mn || 1)) * 90 + 5
-                        const pts = visibleData.filter(p => p.x != null).map(p => `${norm(p.x, minX, maxX).toFixed(2)},${norm(p.y, minY, maxY).toFixed(2)}`)
-                        return <path d={`M ${pts.join(' L ')}`} fill="none" stroke="var(--red)" strokeWidth="1.8" strokeLinecap="round" />
-                      })()}
-                      {/* Car dot */}
-                      {carPos && (
-                        <circle cx={carPos.x} cy={carPos.y} r="2.5" fill="white">
-                          <animate attributeName="r" values="2;3.5;2" dur="1s" repeatCount="indefinite" />
-                        </circle>
-                      )}
-                    </svg>
-                  ) : (
-                    <div className="empty" style={{ padding: 20 }}>
-                      <span style={{ color: 'var(--text-3)', fontSize: 12 }}>No position data for this lap</span>
-                    </div>
-                  )}
+      {/* Predicted value display */}
+      <div className="grid-2" style={{ marginBottom: 10 }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(192,132,252,0.08) 0%, rgba(22,27,34,0) 100%)', border: '1px solid rgba(192,132,252,0.2)' }}>
+          <div className="card-header"><span className="card-title">🤖 ML Prediction</span></div>
+          <div className="card-body" style={{ textAlign: 'center', padding: '20px 16px' }}>
+            {predicted ? (
+              <>
+                <div style={{ fontSize: 42, fontWeight: 900, fontFamily: 'monospace', color: '#c084fc', letterSpacing: '-1px' }}>
+                  {msToLapTime(predicted.predicted_value)}
                 </div>
-              </div>
-            </div>
-
-            {/* Playback controls */}
-            <div className="replay-controls" style={{ marginTop: 20 }}>
-              <button
-                className={`control-btn ${playing ? 'active' : ''}`}
-                onClick={() => { setProgress(0); setPlaying(false) }}
-                title="Reset"
-              >⏮</button>
-              <button
-                className={`control-btn ${playing ? 'active' : ''}`}
-                onClick={() => setPlaying(p => !p)}
-                title={playing ? 'Pause' : 'Play'}
-              >
-                {playing ? '⏸' : '▶'}
-              </button>
-
-              <div
-                className="replay-progress"
-                onClick={e => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setProgress((e.clientX - rect.left) / rect.width)
-                }}
-              >
-                <div className="replay-progress-fill" style={{ width: `${progress * 100}%` }} />
-                <div className="replay-progress-thumb" style={{ left: `${progress * 100}%` }} />
-              </div>
-
-              <span style={{ fontSize: 12, fontFamily: 'JetBrains Mono', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-                {currentPt.distance_m ? `${(currentPt.distance_m / 1000).toFixed(2)} km` : '—'}
-              </span>
-            </div>
-
-            {/* Lap info footer */}
-            {lap && (
-              <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
-                <div style={{ color: 'var(--text-2)', fontSize: 12 }}>
-                  Lap {lap.lap_number} ·{' '}
-                  <span className="mono" style={{ color: 'var(--green)' }}>{msToLapTime(lap.lap_time_ms)}</span>
-                  {' '}· <CompoundBadge compound={lap.compound} /> · Tyre age: {lap.tyre_life} laps
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+                  Model: {predicted.model_name} · v{predicted.model_version ?? '1.0'}
                 </div>
-                {currentPt.drs && (
-                  <span style={{ color: 'var(--blue)', fontSize: 12, fontWeight: 600 }}>⚡ DRS OPEN</span>
-                )}
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                  Type: {predicted.prediction_type ?? 'lap_time'}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                Press <strong>Predict Lap Time</strong> to run the XGBoost model
               </div>
             )}
-          </>
-        )}
-
-        {!loading && telemetry.length === 0 && (
-          <div className="empty">
-            <span className="empty-icon">▶</span>
-            <span>Select a session, driver, and lap to begin replay</span>
           </div>
-        )}
+        </div>
+
+        <div className="card">
+          <div className="card-header"><span className="card-title">📊 Driver Reference</span></div>
+          <div className="card-body">
+            {drv && (
+              <>
+                {[
+                  ['Driver', `${drv.code} — ${drv.team}`],
+                  ['Best Actual Lap', msToLapTime(bestLap?.lap_time_ms)],
+                  ['Best Lap Number', bestLap ? `Lap ${bestLap.lap_number}` : '—'],
+                  ['Compound (Best)', bestLap?.compound ?? '—'],
+                  ['Tyre Age (Best)', bestLap ? `${bestLap.tyre_life} laps` : '—'],
+                  ['Total Valid Laps', laps.length],
+                ].map(([k, v]) => (
+                  <div key={k} className="lap-info-row">
+                    <span className="lap-info-label">{k}</span>
+                    <span className="lap-info-value">{v}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </>
-  )
+
+      {/* Actual vs Predicted chart */}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">Actual vs ML Predicted — {compound}</span>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: COMPOUND_COLORS[compound], opacity: 0.7 }} />
+              <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>Actual laps</span>
+            </span>
+            <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <div style={{ width: 14, height: 2, background: '#c084fc' }} />
+              <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>ML prediction</span>
+            </span>
+          </div>
+        </div>
+        <div className="card-body">
+          {!comboData.length
+            ? <div className="empty-state">No data for {compound} compound</div>
+            : (
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={comboData} margin={{ top: 8, right: 12, bottom: 20, left: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(48,54,61,0.45)" vertical={false} />
+                  <XAxis dataKey="tyre_life" tick={{ fontSize: 8, fill: '#6e7681', fontFamily: 'monospace' }} tickLine={false}
+                    label={{ value: 'Tyre Life (laps)', position: 'insideBottom', offset: -12, fontSize: 9, fill: '#6e7681' }} />
+                  <YAxis tick={{ fontSize: 8, fill: '#6e7681', fontFamily: 'monospace' }} tickLine={false} axisLine={false} width={32}
+                    label={{ value: 'Lap Time (s)', angle: -90, position: 'insideLeft', offset: 12, fontSize: 9, fill: '#6e7681' }}
+                    domain={['auto', 'auto']} />
+                  <Tooltip formatter={(v, name) => [`${v}s`, name]}
+                    contentStyle={{ background: 'rgba(22,27,34,0.97)', border: '1px solid rgba(48,54,61,0.9)', borderRadius: 4, fontSize: 10 }} />
+                  <Legend wrapperStyle={{ fontSize: 9 }} />
+                  <Line type="monotone" dataKey="predicted_s" stroke="#c084fc" strokeWidth={2} dot={false} name="ML Predicted (s)" />
+                  <Line type="monotone" dataKey="actual_s" stroke={COMPOUND_COLORS[compound]}
+                    strokeWidth={0} dot={{ r: 3, fill: COMPOUND_COLORS[compound], opacity: 0.8 }}
+                    activeDot={{ r: 4 }} name="Actual (s)" connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+        </div>
+      </div>
+    </div>
+  );
 }
