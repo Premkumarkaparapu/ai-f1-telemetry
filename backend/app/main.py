@@ -45,12 +45,24 @@ app.include_router(predictions.router,    prefix=API_PREFIX)
 app.include_router(auth_router.router,    prefix=API_PREFIX)
 
 
-# ── DB: auto-create users table on startup ────────────────────────────────────
+# ── DB: create tables on startup (safe for repeated deploys) ─────────────────
 @app.on_event("startup")
 def on_startup():
     from backend.app.database.db import engine
     from backend.app.database.models import Base
-    Base.metadata.create_all(bind=engine, checkfirst=True)
+    from sqlalchemy.exc import ProgrammingError
+
+    # create_all checkfirst=True skips tables but NOT indexes.
+    # On PostgreSQL redeploys the indexes already exist → crash.
+    # Fix: create each table individually and swallow DuplicateTable errors.
+    for table in Base.metadata.sorted_tables:
+        try:
+            table.create(bind=engine, checkfirst=True)
+        except ProgrammingError as e:
+            if "already exists" in str(e):
+                pass  # index exists from a previous deploy — safe to ignore
+            else:
+                raise
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
