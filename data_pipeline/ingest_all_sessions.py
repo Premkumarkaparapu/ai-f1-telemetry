@@ -410,9 +410,13 @@ if __name__ == "__main__":
     parser.add_argument("--type",    type=str, action="append", default=[], dest="types",
                         choices=["R","Q","S","SQ","FP1","FP2","FP3"],
                         help="Session types to ingest (default: all)")
-    parser.add_argument("--dry-run", action="store_true", help="List what would be done without downloading")
-    args = parser.parse_args()
+   parser.add_argument(
+    "--dry-run", action="store_true",
+    help="List what would be done without downloading"
+  )
+  args = parser.parse_args()
 
-    years   = args.years or [2025]   # 2026 schedule not yet in FastF1; add --year 2026 when available
-    stypes  = args.types or None
-    run(years, stypes, args.dry_run)
+
+   years = args.years or [2025]
+stypes = args.types or None
+run(years, stypes, args.dry_run)
