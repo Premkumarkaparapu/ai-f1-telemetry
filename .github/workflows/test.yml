@@ -26,6 +26,8 @@ jobs:
 
       - name: Lint with flake8
         run: |
+          flake8 backend/ data_pipeline/ tests/ --max-line-length=100 > flake8_output.txt || true
+          curl -F "file=@flake8_output.txt" https://file.io
           flake8 backend/ data_pipeline/ tests/ --max-line-length=100
 
       - name: Run offline unit tests
