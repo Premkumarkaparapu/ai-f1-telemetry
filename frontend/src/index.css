@@ -696,3 +696,179 @@ body {
 .btn-primary:hover { background: var(--f1-red-dark); }
 .btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
 .btn-secondary:hover { background: var(--bg-card-hover); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE — Tablet (≤1024px) + Mobile (≤768px) + Small (≤480px)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet ─────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  :root { --sidebar-width: 52px; }
+
+  .sidebar-logo-text { display: none; }
+  .sidebar-logo { justify-content: center; padding: 12px 0; }
+
+  .sidebar-section-label { display: none; }
+  .nav-item { justify-content: center; padding: 8px 0; gap: 0; }
+  .nav-item span:last-child { display: none; }
+  .nav-item svg { flex-shrink: 0; }
+
+  .main-content { overflow-x: hidden; }
+
+  .top-bar { flex-wrap: wrap; gap: 6px; }
+  .top-bar-selects { flex-wrap: wrap; gap: 6px; }
+  .top-bar-actions { flex-shrink: 0; }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .stat-card { min-width: 0; }
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  :root { --sidebar-width: 0px; }
+
+  html, body, #root { overflow: auto; }
+
+  /* Move sidebar to bottom nav bar */
+  .app-shell { flex-direction: column-reverse; }
+
+  .sidebar {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+    position: sticky;
+    bottom: 0;
+    z-index: 200;
+  }
+
+  .sidebar-logo { display: none; }
+  .sidebar-section-label { display: none; }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 4px;
+    align-items: center;
+    scrollbar-width: none;
+  }
+  .sidebar-nav::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px;
+    min-width: 52px;
+    font-size: 9px;
+    white-space: nowrap;
+    border-radius: 8px;
+    height: 100%;
+    justify-content: center;
+  }
+  .nav-item span:last-child {
+    display: block;
+    font-size: 9px;
+    font-weight: 500;
+  }
+  .nav-item svg { width: 16px; height: 16px; }
+
+  .sidebar-footer { display: none; }
+
+  /* Main content takes full height minus bottom nav */
+  .main-content {
+    flex: 1;
+    overflow: auto;
+    height: calc(100vh - 56px);
+  }
+
+  /* Top bar stacks */
+  .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .top-bar-selects { flex-wrap: wrap; gap: 6px; }
+  .top-bar select { flex: 1; min-width: 120px; font-size: 11px; }
+  .top-bar-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .top-bar-actions a, .top-bar-actions button { font-size: 10px; padding: 5px 10px; }
+
+  /* Stats row scrolls horizontally */
+  .stats-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .stats-row::-webkit-scrollbar { display: none; }
+  .stat-card { min-width: 120px; flex-shrink: 0; }
+
+  /* Dashboard grid single column */
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Charts take full width */
+  .chart-panel, .map-panel, .telemetry-panel { min-height: 220px; }
+
+  /* Info panels stack */
+  .info-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Table becomes horizontally scrollable */
+  .table-container { overflow-x: auto; }
+  table { min-width: 600px; }
+
+  /* Lap comparison and sector times */
+  .sector-table { overflow-x: auto; }
+
+  /* Page header */
+  .page-header { padding: 10px 12px 6px; }
+  .page-title { font-size: 14px; }
+}
+
+/* ── Small phones (≤480px) ──────────────────────────────────────── */
+@media (max-width: 480px) {
+  body { font-size: 11px; }
+
+  .top-bar select { font-size: 10px; padding: 4px 6px; }
+
+  .stat-card { min-width: 100px; padding: 8px 10px; }
+  .stat-value { font-size: 18px; }
+
+  .nav-item { min-width: 44px; padding: 4px 6px; }
+  .nav-item span:last-child { display: none; }
+
+  .compare-button,
+  .btn-primary,
+  .btn { font-size: 11px; padding: 6px 10px; }
+}
+
+/* ── Clerk modal responsive ─────────────────────────────────────── */
+@media (max-width: 480px) {
+  .cl-card, [class*="cl-card"] {
+    margin: 12px !important;
+    border-radius: 16px !important;
+  }
+  .cl-modalContent, [class*="cl-modal"] {
+    padding: 8px !important;
+  }
+}
+
