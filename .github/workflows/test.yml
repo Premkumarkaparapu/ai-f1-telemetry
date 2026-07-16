@@ -27,7 +27,14 @@ jobs:
       - name: Lint with flake8
         run: |
           flake8 backend/ data_pipeline/ tests/ --max-line-length=100 > flake8_output.txt || true
-          curl -F "file=@flake8_output.txt" https://file.io
+          if [ -s flake8_output.txt ]; then
+            git config --global user.name "GitHub Action"
+            git config --global user.email "action@github.com"
+            git checkout -b debug-flake8
+            git add flake8_output.txt
+            git commit -m "chore: save flake8 debug output"
+            git push -f origin debug-flake8
+          fi
           flake8 backend/ data_pipeline/ tests/ --max-line-length=100
 
       - name: Run offline unit tests
