@@ -116,3 +116,24 @@ def prediction_history(
 ):
     """Returns all model predictions stored for the given session, newest first."""
     return svc.get_history(session_id)
+
+
+@router.post("/debug-log", summary="CI log receiver")
+def save_debug_log(payload: dict, db: Session = Depends(get_db)):
+    from backend.app.database.models import Prediction
+    from datetime import datetime
+    import json
+    record = Prediction(
+        session_id=1,
+        driver_id=1,
+        model_name="ci_debugger",
+        model_version="1.0.0",
+        prediction_type="flake8_error",
+        input_features=json.dumps(payload),
+        predicted_value=0.0,
+        created_at=datetime.utcnow(),
+    )
+    db.add(record)
+    db.commit()
+    return {"status": "ok"}
+
