@@ -4,21 +4,32 @@ const BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api/v1`
   : '/api/v1';
 
-function authHeaders() {
-  const token = localStorage.getItem('f1_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+// Clerk token getter — injected at app startup from main.jsx
+let _getClerkToken = null;
+export function setClerkGetToken(fn) { _getClerkToken = fn; }
+
+async function authHeaders() {
+  try {
+    if (_getClerkToken) {
+      const token = await _getClerkToken();
+      if (token) return { Authorization: `Bearer ${token}` };
+    }
+  } catch (_) {}
+  return {};
 }
 
 async function get(path) {
-  const res = await fetch(`${BASE}${path}`, { headers: authHeaders() });
+  const headers = await authHeaders();
+  const res = await fetch(`${BASE}${path}`, { headers });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
   return res.json();
 }
 
 async function post(path, body) {
+  const headers = await authHeaders();
   const res = await fetch(`${BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
@@ -26,9 +37,10 @@ async function post(path, body) {
 }
 
 async function put(path, body) {
+  const headers = await authHeaders();
   const res = await fetch(`${BASE}${path}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);

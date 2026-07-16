@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { AuthProvider, useAuth } from './AuthContext.jsx';
-import AuthModal, { ProfileEditModal } from './components/AuthModal.jsx';
+import { useUser, useAuth, UserButton, SignInButton, SignUpButton, SignedIn, SignedOut } from '@clerk/clerk-react';
+import AuthModal from './components/AuthModal.jsx';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
 import Drivers from './pages/Drivers';
@@ -40,9 +40,7 @@ const ICONS = {
   strategy:    'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z M8 2v16 M16 6v16',
   about:       'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M12 8h.01 M11 12h1v4h1',
   user:        'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
-  logout:      'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
   login:       'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4 M10 17l5-5-5-5 M15 12H3',
-  edit:        'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
   docs:        'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
   github:      'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22',
 };
@@ -68,15 +66,15 @@ const NAV = [
   { id: 'about', label: 'Platform Internals', icon: 'about', private: true },
 ];
 
+// ── Page Content ──────────────────────────────────────────────────────────────
 function PageContent({ page, navigate, onLoginClick }) {
-  const { user } = useAuth();
+  const { isSignedIn } = useAuth();
 
-  // Private pages: only accessible when logged in
-  if (page === 'about' && !user) {
+  if (page === 'about' && !isSignedIn) {
     return (
       <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        height: '100%', minHeight: 480, gap: 20, padding: 40,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', height: '100%', minHeight: 480, gap: 20, padding: 40,
       }}>
         <div style={{
           width: 72, height: 72, borderRadius: '50%',
@@ -94,21 +92,18 @@ function PageContent({ page, navigate, onLoginClick }) {
             are restricted to registered users.
           </div>
         </div>
-        <button
-          onClick={() => onLoginClick('login')}
+        <button onClick={() => onLoginClick('login')}
           style={{
             padding: '10px 28px', borderRadius: 8, border: 'none', cursor: 'pointer',
             background: 'linear-gradient(135deg, #e8002d, #b00020)',
             color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: 'inherit',
             boxShadow: '0 4px 20px rgba(232,0,45,0.35)',
-            transition: 'all 0.2s',
           }}>
           Sign In to Access
         </button>
         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           Don't have an account?&nbsp;
-          <span
-            onClick={() => onLoginClick('register')}
+          <span onClick={() => onLoginClick('register')}
             style={{ color: '#70b8ff', cursor: 'pointer', textDecoration: 'underline' }}>
             Register free
           </span>
@@ -136,118 +131,44 @@ function PageContent({ page, navigate, onLoginClick }) {
   }
 }
 
-// ── Profile Avatar Button ──────────────────────────────────────────────────────
-function ProfileButton({ onLoginClick }) {
-  const { user, logout } = useAuth();
-  const [open, setOpen]           = useState(false);
-  const [showEdit, setShowEdit]   = useState(false);
-  const menuRef = useRef(null);
-
-  // Close when clicking outside
-  useEffect(() => {
-    function handle(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
-  }, []);
-
-  const initials    = user?.avatar_initials || (user ? user.username.slice(0, 2).toUpperCase() : '?');
-  const avatarColor = user?.avatar_color || '#e8002d';
-
+// ── Profile / Auth Button ──────────────────────────────────────────────────────
+function AuthControls({ onLoginClick }) {
   return (
     <>
-      <div ref={menuRef} style={{ position: 'relative' }}>
-        {/* Avatar circle */}
-        <button
-          onClick={() => setOpen(o => !o)}
-          title={user ? user.username : 'Login / Register'}
+      {/* Signed in: show Clerk's UserButton (avatar + profile menu) */}
+      <SignedIn>
+        <UserButton
+          afterSignOutUrl="/"
+          appearance={{
+            elements: {
+              avatarBox: {
+                width: 32, height: 32,
+                boxShadow: '0 0 12px rgba(232,0,45,0.4)',
+              },
+              userButtonPopoverCard: {
+                background: '#0f1923',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
+              },
+              userButtonPopoverActionButton: { color: '#f0f4f8' },
+            },
+          }}
+        />
+      </SignedIn>
+
+      {/* Signed out: show Login button */}
+      <SignedOut>
+        <button onClick={() => onLoginClick('login')}
           style={{
-            width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer',
-            background: user
-              ? `linear-gradient(135deg, ${avatarColor}, ${avatarColor}bb)`
-              : 'linear-gradient(135deg, #374151, #1f2937)',
-            color: '#fff', fontSize: 11, fontWeight: 800, fontFamily: 'inherit',
-            boxShadow: user ? `0 0 12px ${avatarColor}60` : 'none',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all 0.2s',
-            outline: open ? `2px solid ${avatarColor}` : '2px solid transparent',
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(232,0,45,0.35)',
+            background: 'rgba(232,0,45,0.1)', color: '#f0f4f8',
+            cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
           }}>
-          {initials}
+          <Icon d={ICONS.login} size={12} />
+          Sign In
         </button>
-
-        {/* Dropdown menu */}
-        {open && (
-          <div style={{
-            position: 'absolute', right: 0, top: 38,
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 10, boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
-            minWidth: 220, zIndex: 999, overflow: 'hidden',
-            animation: 'fadeDown 0.15s ease',
-          }}>
-            {/* Header */}
-            <div style={{
-              padding: '14px 16px', borderBottom: '1px solid var(--border)',
-              background: user ? `linear-gradient(135deg, ${avatarColor}18, transparent)` : 'rgba(232,0,45,0.04)',
-            }}>
-              {user ? (
-                <>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {user.full_name || user.username}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {user.email}
-                  </div>
-                  {user.team_affiliation && user.team_affiliation !== 'Other / No Team' && (
-                    <div style={{
-                      display: 'inline-block', marginTop: 6,
-                      fontSize: 9, fontWeight: 700, letterSpacing: '0.5px',
-                      color: avatarColor, background: `${avatarColor}18`,
-                      border: `1px solid ${avatarColor}40`, borderRadius: 10,
-                      padding: '2px 8px', textTransform: 'uppercase',
-                    }}>
-                      {user.team_affiliation}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Guest User</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    Login to save preferences
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Menu items */}
-            {user ? (
-              <>
-                <MenuItem icon={ICONS.edit} label="Edit Profile" onClick={() => { setOpen(false); setShowEdit(true); }} />
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                <MenuItem icon={ICONS.docs}   label="API Documentation" href="http://localhost:8000/docs" />
-                <MenuItem icon={ICONS.github}  label="GitHub Repository"  href="https://github.com/Premkumarkaparapu/ai-f1-telemetry" />
-                <MenuItem icon={ICONS.about}   label="Backend Health"     href="http://localhost:8000/health" />
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                <MenuItem icon={ICONS.logout} label="Sign Out" onClick={() => { logout(); setOpen(false); }} danger />
-              </>
-            ) : (
-              <>
-                <MenuItem icon={ICONS.login} label="Login to your account" onClick={() => { setOpen(false); onLoginClick(); }} />
-                <MenuItem icon={ICONS.user}  label="Create free account"   onClick={() => { setOpen(false); onLoginClick('register'); }} />
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                <MenuItem icon={ICONS.docs}   label="API Documentation" href="http://localhost:8000/docs" />
-                <MenuItem icon={ICONS.github}  label="GitHub Repository"  href="https://github.com/Premkumarkaparapu/ai-f1-telemetry" />
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Edit profile modal */}
-      {showEdit && user && (
-        <ProfileEditModal user={user} onClose={() => setShowEdit(false)} />
-      )}
+      </SignedOut>
     </>
   );
 }
@@ -261,7 +182,6 @@ function MenuItem({ icon, label, onClick, href, danger }) {
     transition: 'background 0.1s', textAlign: 'left',
   };
   const hoverBg = danger ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.04)';
-
   const inner = (
     <>
       <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -271,7 +191,6 @@ function MenuItem({ icon, label, onClick, href, danger }) {
       {label}
     </>
   );
-
   if (href) return (
     <a href={href} target="_blank" rel="noreferrer" style={base}
       onMouseEnter={e => e.currentTarget.style.background = hoverBg}
@@ -279,7 +198,6 @@ function MenuItem({ icon, label, onClick, href, danger }) {
       {inner}
     </a>
   );
-
   return (
     <button onClick={onClick} style={base}
       onMouseEnter={e => e.currentTarget.style.background = hoverBg}
@@ -290,12 +208,20 @@ function MenuItem({ icon, label, onClick, href, danger }) {
 }
 
 // ── Main App Shell ─────────────────────────────────────────────────────────────
-function AppShell() {
-  const [page, setPage]         = useState('dashboard');
-  const [authTab, setAuthTab]   = useState(null);   // null | 'login' | 'register'
-  const { user }                = useAuth();
+export default function App() {
+  const [page, setPage]   = useState('dashboard');
+  const [authTab, setAuthTab] = useState(null);
+  const { isSignedIn }    = useAuth();
+  const { user }          = useUser();
 
   function openAuth(tab = 'login') { setAuthTab(tab); }
+
+  // Close auth modal automatically when user signs in via Clerk
+  useEffect(() => {
+    if (isSignedIn && authTab) setAuthTab(null);
+  }, [isSignedIn]);
+
+  const displayName = user?.firstName || user?.username || 'User';
 
   return (
     <div className="app-shell">
@@ -310,39 +236,40 @@ function AppShell() {
           <span className="sidebar-logo-text">F1 Telemetry<br />&amp; Strategy</span>
         </div>
 
-        {/* User badge in sidebar */}
-        {user && (
+        {/* Signed-in user badge */}
+        {isSignedIn && user && (
           <div style={{
             margin: '0 10px 8px', padding: '8px 10px', borderRadius: 8,
-            background: `${user.avatar_color || '#e8002d'}14`,
-            border: `1px solid ${user.avatar_color || '#e8002d'}30`,
+            background: 'rgba(232,0,45,0.1)', border: '1px solid rgba(232,0,45,0.25)',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <div style={{
-              width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-              background: `linear-gradient(135deg, ${user.avatar_color || '#e8002d'}, ${user.avatar_color || '#e8002d'}88)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 9, fontWeight: 800, color: '#fff',
-            }}>
-              {user.avatar_initials || user.username.slice(0, 2).toUpperCase()}
-            </div>
+            {user.imageUrl ? (
+              <img src={user.imageUrl} alt={displayName}
+                style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+            ) : (
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg, #e8002d, #c00025)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 800, color: '#fff',
+              }}>
+                {displayName.slice(0, 2).toUpperCase()}
+              </div>
+            )}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {user.full_name || user.username}
+                {user.fullName || displayName}
               </div>
-              {user.team_affiliation && user.team_affiliation !== 'Other / No Team' && (
-                <div style={{ fontSize: 9, color: user.avatar_color || '#e8002d', fontWeight: 600, marginTop: 1 }}>
-                  {user.team_affiliation}
-                </div>
-              )}
+              <div style={{ fontSize: 9, color: '#e8002d', fontWeight: 600, marginTop: 1 }}>
+                Member
+              </div>
             </div>
           </div>
         )}
 
         <nav className="sidebar-nav">
           {NAV.map((item, i) => {
-            // Hide private nav items from guests
-            if (item.private && !user) return null;
+            if (item.private && !isSignedIn) return null;
             return item.section
               ? <div key={i} className="sidebar-section-label">{item.section}</div>
               : (
@@ -371,40 +298,45 @@ function AppShell() {
               <text x="30" y="27" textAnchor="middle" fill="white"
                 fontFamily="Arial Black, Arial" fontWeight="900" fontSize="22">F1</text>
             </svg>
-            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.2px' }}>F1 Telemetry &amp; Strategy Platform</span>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'rgba(232,0,45,0.12)', border: '1px solid rgba(232,0,45,0.25)', borderRadius: 10, padding: '1px 7px', marginLeft: 4 }}>2026</span>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.2px' }}>
+              F1 Telemetry &amp; Strategy Platform
+            </span>
+            <span style={{
+              fontSize: 10, color: 'var(--text-muted)', background: 'rgba(232,0,45,0.12)',
+              border: '1px solid rgba(232,0,45,0.25)', borderRadius: 10, padding: '1px 7px', marginLeft: 4,
+            }}>2026</span>
           </div>
 
           <div className="top-header-actions">
-            {/* API Live status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20,
-              background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399',
-                boxShadow: '0 0 6px #34d399', animation: 'pulse 2s infinite' }} />
+            {/* Live status */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+              borderRadius: 20, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)',
+            }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: '50%', background: '#34d399',
+                boxShadow: '0 0 6px #34d399', animation: 'pulse 2s infinite',
+              }} />
               <span style={{ fontSize: 10, color: '#34d399', fontWeight: 600 }}>API Live</span>
             </div>
 
-            {/* API Docs */}
-            <a className="header-btn" href="http://localhost:8000/docs" target="_blank" rel="noreferrer">
+            <a className="header-btn" href="/docs" target="_blank" rel="noreferrer">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
               </svg>
               API Docs
             </a>
 
-            {/* GitHub */}
             <a className="header-btn" href="https://github.com/Premkumarkaparapu/ai-f1-telemetry" target="_blank" rel="noreferrer">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
               </svg>
               GitHub
             </a>
 
-            {/* Profile / Auth button */}
-            <ProfileButton onLoginClick={openAuth} />
+            {/* Clerk auth controls */}
+            <AuthControls onLoginClick={openAuth} />
           </div>
         </header>
 
@@ -418,12 +350,9 @@ function AppShell() {
         </footer>
       </div>
 
-      {/* ── Auth Modal ── */}
-      {authTab && (
-        <AuthModal
-          initialTab={authTab}
-          onClose={() => setAuthTab(null)}
-        />
+      {/* ── Clerk Auth Modal ── */}
+      {authTab && !isSignedIn && (
+        <AuthModal initialTab={authTab} onClose={() => setAuthTab(null)} />
       )}
 
       <style>{`
@@ -433,14 +362,5 @@ function AppShell() {
         }
       `}</style>
     </div>
-  );
-}
-
-// ── Root export with AuthProvider wrapper ─────────────────────────────────────
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
   );
 }

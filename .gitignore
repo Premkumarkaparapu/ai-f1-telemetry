@@ -6,10 +6,13 @@ __pycache__/
 venv/
 *.egg-info/
 
-# Environment
+# Environment — never commit secrets
 .env
+.env.local
+.env*.local
 backend/.env
 frontend/.env
+frontend/.env.local
 
 # Database temporary files
 *.db-shm
