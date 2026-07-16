@@ -350,8 +350,3 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     last_login = Column(DateTime, nullable=True)
-
-    __table_args__ = (
-        Index("ix_users_email", "email"),
-        Index("ix_users_username", "username"),
-    )
