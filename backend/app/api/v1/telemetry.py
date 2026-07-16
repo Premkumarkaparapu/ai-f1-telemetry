@@ -1,14 +1,12 @@
 """API v1 — Telemetry endpoints."""
 
 import pickle
-from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.app.core.config import RAW_DIR, CACHE_DIR
+from backend.app.core.config import RAW_DIR
 from backend.app.database.db import get_db
 from backend.app.repositories.lap_repository import LapRepository
 from backend.app.repositories.telemetry_repository import TelemetryRepository
@@ -77,7 +75,7 @@ def compare_laps(
 # Works for ALL 20 drivers — no DB storage needed.
 
 def _load_live_telemetry(year: int, event: str, session_type: str,
-                          driver_code: str, lap_number: int) -> list[dict]:
+                         driver_code: str, lap_number: int) -> list[dict]:
     """Load telemetry for any driver/lap from FastF1 pickle cache."""
     slug = f"{year}_{event.replace(' ', '_')}_{session_type}.pkl"
     raw_path = RAW_DIR / slug
@@ -126,20 +124,20 @@ def _load_live_telemetry(year: int, event: str, session_type: str,
             return None if val is None or (isinstance(val, float) and pd.isna(val)) else val
 
         brake_raw = v("Brake")
-        drs_raw   = v("DRS")
+        drs_raw = v("DRS")
 
         results.append({
-            "time_ms":     int(pt["_bin"]),
-            "distance_m":  float(v("Distance")) if v("Distance") is not None else None,
-            "speed_kmh":   float(v("Speed"))    if v("Speed")    is not None else None,
-            "rpm":         float(v("RPM"))      if v("RPM")      is not None else None,
-            "gear":        int(v("nGear"))      if v("nGear")    is not None else None,
-            "throttle_pct":float(v("Throttle"))if v("Throttle") is not None else None,
-            "brake":       bool(int(brake_raw) > 0) if brake_raw is not None else False,
-            "drs":         bool(int(drs_raw) > 8)   if drs_raw   is not None else False,
-            "x":           float(v("X"))        if v("X")        is not None else None,
-            "y":           float(v("Y"))        if v("Y")        is not None else None,
-            "z":           float(v("Z"))        if v("Z")        is not None else None,
+            "time_ms": int(pt["_bin"]),
+            "distance_m": float(v("Distance")) if v("Distance") is not None else None,
+            "speed_kmh": float(v("Speed")) if v("Speed") is not None else None,
+            "rpm": float(v("RPM")) if v("RPM") is not None else None,
+            "gear": int(v("nGear")) if v("nGear") is not None else None,
+            "throttle_pct": float(v("Throttle"))if v("Throttle") is not None else None,
+            "brake": bool(int(brake_raw) > 0) if brake_raw is not None else False,
+            "drs": bool(int(drs_raw) > 8) if drs_raw is not None else False,
+            "x": float(v("X")) if v("X") is not None else None,
+            "y": float(v("Y")) if v("Y") is not None else None,
+            "z": float(v("Z")) if v("Z") is not None else None,
         })
     return results
 
@@ -166,4 +164,4 @@ def get_live_telemetry(
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
     return _load_live_telemetry(sess.year, sess.event_name, sess.session_type,
-                                 driver_code.upper(), lap_number)
+                                driver_code.upper(), lap_number)

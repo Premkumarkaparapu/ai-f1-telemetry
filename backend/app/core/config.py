@@ -60,21 +60,21 @@ FUEL_EFFECT_SEC_PER_LAP: float = float(
 # 2023 originals (circuit archetypes for ML baseline)
 TARGET_SESSIONS: list[tuple[int, str, str]] = [
     # ── 2023 Baseline ─────────────────────────────────────────────────
-    (2023, "Italian Grand Prix",       "R"),   # Monza  — high-speed, low-df
-    (2023, "Monaco Grand Prix",        "R"),   # Monaco — street, undercut
-    (2023, "Dutch Grand Prix",         "R"),   # Zandvoort — mixed
+    (2023, "Italian Grand Prix", "R"),   # Monza  — high-speed, low-df
+    (2023, "Monaco Grand Prix", "R"),   # Monaco — street, undercut
+    (2023, "Dutch Grand Prix", "R"),   # Zandvoort — mixed
 
     # ── 2025 Full Season (completed through British GP, Round 12) ────
-    (2025, "Australian Grand Prix",    "R"),   # R01 — Melbourne
-    (2025, "Chinese Grand Prix",       "R"),   # R02 — Shanghai (Sprint)
-    (2025, "Japanese Grand Prix",      "R"),   # R03 — Suzuka
-    (2025, "Bahrain Grand Prix",       "R"),   # R04 — Sakhir
+    (2025, "Australian Grand Prix", "R"),   # R01 — Melbourne
+    (2025, "Chinese Grand Prix", "R"),   # R02 — Shanghai (Sprint)
+    (2025, "Japanese Grand Prix", "R"),   # R03 — Suzuka
+    (2025, "Bahrain Grand Prix", "R"),   # R04 — Sakhir
     (2025, "Saudi Arabian Grand Prix", "R"),   # R05 — Jeddah
-    (2025, "Miami Grand Prix",         "R"),   # R06 — Miami (Sprint)
-    (2025, "Emilia Romagna Grand Prix","R"),   # R07 — Imola
-    (2025, "Monaco Grand Prix",        "R"),   # R08 — Monaco
-    (2025, "Spanish Grand Prix",       "R"),   # R09 — Barcelona
-    (2025, "Canadian Grand Prix",      "R"),   # R10 — Montreal
-    (2025, "Austrian Grand Prix",      "R"),   # R11 — Red Bull Ring (Sprint)
-    (2025, "British Grand Prix",       "R"),   # R12 — Silverstone
+    (2025, "Miami Grand Prix", "R"),   # R06 — Miami (Sprint)
+    (2025, "Emilia Romagna Grand Prix", "R"),   # R07 — Imola
+    (2025, "Monaco Grand Prix", "R"),   # R08 — Monaco
+    (2025, "Spanish Grand Prix", "R"),   # R09 — Barcelona
+    (2025, "Canadian Grand Prix", "R"),   # R10 — Montreal
+    (2025, "Austrian Grand Prix", "R"),   # R11 — Red Bull Ring (Sprint)
+    (2025, "British Grand Prix", "R"),   # R12 — Silverstone
 ]

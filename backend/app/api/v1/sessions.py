@@ -1,6 +1,6 @@
 """API v1 — Sessions endpoints."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy import distinct
 from sqlalchemy.orm import Session
 
@@ -13,9 +13,9 @@ from backend.app.schemas.schemas import SessionOut, WeatherOut
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
 SESSION_TYPE_LABELS = {
-    "R":  "Race",
-    "Q":  "Qualifying",
-    "S":  "Sprint",
+    "R": "Race",
+    "Q": "Qualifying",
+    "S": "Sprint",
     "SQ": "Sprint Qualifying",
     "FP1": "Practice 1",
     "FP2": "Practice 2",
@@ -49,9 +49,9 @@ def list_by_year(year: int, db: Session = Depends(get_db)):
         if s.event_name not in events:
             events[s.event_name] = {"event_name": s.event_name, "track": s.track, "sessions": []}
         events[s.event_name]["sessions"].append({
-            "session_id":   s.session_id,
+            "session_id": s.session_id,
             "session_type": s.session_type,
-            "label":        SESSION_TYPE_LABELS.get(s.session_type, s.session_type),
+            "label": SESSION_TYPE_LABELS.get(s.session_type, s.session_type),
         })
     return {"year": year, "events": list(events.values())}
 

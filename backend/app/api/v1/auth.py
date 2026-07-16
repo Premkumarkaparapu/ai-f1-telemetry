@@ -5,15 +5,17 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from backend.app.core.security import hash_password, verify_password, create_access_token, decode_token
+from backend.app.core.security import (
+    hash_password, verify_password, create_access_token, decode_token
+)
 from backend.app.database.db import get_db
 from backend.app.database.models import User
 
-router  = APIRouter(prefix="/auth", tags=["Auth"])
-bearer  = HTTPBearer(auto_error=False)
+router = APIRouter(prefix="/auth", tags=["Auth"])
+bearer = HTTPBearer(auto_error=False)
 
 F1_TEAMS = [
     "Red Bull Racing", "Ferrari", "Mercedes", "McLaren", "Aston Martin",
@@ -28,6 +30,7 @@ AVATAR_COLORS = [
 
 # ── Schemas ────────────────────────────────────────────────────────────────────
 
+
 class RegisterRequest(BaseModel):
     username: str
     email: str
@@ -41,8 +44,10 @@ class RegisterRequest(BaseModel):
     @classmethod
     def username_valid(cls, v):
         v = v.strip()
-        if len(v) < 3:  raise ValueError("Username must be at least 3 characters")
-        if len(v) > 40: raise ValueError("Username must be at most 40 characters")
+        if len(v) < 3:
+            raise ValueError("Username must be at least 3 characters")
+        if len(v) > 40:
+            raise ValueError("Username must be at most 40 characters")
         if not re.match(r"^[a-zA-Z0-9_\-\.]+$", v):
             raise ValueError("Username may only contain letters, numbers, _ - .")
         return v
@@ -58,7 +63,8 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strong(cls, v):
-        if len(v) < 8: raise ValueError("Password must be at least 8 characters")
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
         return v
 
 
@@ -148,16 +154,16 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
     initials = _initials(req.full_name, req.username)
     user = User(
-        username         = req.username,
-        email            = req.email,
-        hashed_password  = hash_password(req.password),
-        full_name        = req.full_name,
-        team_affiliation = req.team_affiliation,
-        bio              = req.bio,
-        avatar_color     = req.avatar_color or "#e8002d",
-        avatar_initials  = initials,
-        created_at       = datetime.utcnow(),
-        last_login       = datetime.utcnow(),
+        username=req.username,
+        email=req.email,
+        hashed_password=hash_password(req.password),
+        full_name=req.full_name,
+        team_affiliation=req.team_affiliation,
+        bio=req.bio,
+        avatar_color=req.avatar_color or "#e8002d",
+        avatar_initials=initials,
+        created_at=datetime.utcnow(),
+        last_login=datetime.utcnow(),
     )
     db.add(user)
     db.commit()
@@ -191,13 +197,21 @@ def get_me(user: User = Depends(require_auth)):
 
 
 @router.put("/me", response_model=UserOut)
-def update_me(req: ProfileUpdateRequest, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+def update_me(
+        req: ProfileUpdateRequest,
+        user: User = Depends(require_auth),
+        db: Session = Depends(get_db)):
     """Update profile fields."""
-    if req.full_name        is not None: user.full_name        = req.full_name
-    if req.team_affiliation is not None: user.team_affiliation = req.team_affiliation
-    if req.bio              is not None: user.bio              = req.bio
-    if req.avatar_color     is not None: user.avatar_color     = req.avatar_color
-    if req.avatar_initials  is not None: user.avatar_initials  = req.avatar_initials
+    if req.full_name is not None:
+        user.full_name = req.full_name
+    if req.team_affiliation is not None:
+        user.team_affiliation = req.team_affiliation
+    if req.bio is not None:
+        user.bio = req.bio
+    if req.avatar_color is not None:
+        user.avatar_color = req.avatar_color
+    if req.avatar_initials is not None:
+        user.avatar_initials = req.avatar_initials
     elif req.full_name is not None:
         user.avatar_initials = _initials(req.full_name, user.username)
     db.commit()

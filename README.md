@@ -2,7 +2,18 @@
 
 A production-grade, ML-driven Formula 1 race strategy and telemetry analysis platform. Built to demonstrate full-stack engineering, time-series data pipelines, and applied machine learning on real F1 data.
 
+## 🚀 Live Deployment
+
+| Service | URL | Status |
+|---|---|---|
+| 🌐 **Frontend (Vercel)** | https://f1-telemetry-fctsoznr2-premkumarkaparapus-projects.vercel.app | [![Vercel](https://img.shields.io/badge/Vercel-Live-brightgreen)](https://f1-telemetry-fctsoznr2-premkumarkaparapus-projects.vercel.app) |
+| ⚙️ **Backend API (Render)** | https://f1-telemetry-api.onrender.com | [![Render](https://img.shields.io/badge/Render-Live-brightgreen)](https://f1-telemetry-api.onrender.com/health) |
+| 📖 **API Docs** | https://f1-telemetry-api.onrender.com/docs | Swagger UI |
+
+> ⚠️ **Note:** The backend runs on Render's free tier — it may take 30–60 seconds to wake up after inactivity.
+
 ---
+
 
 ## Architecture
 
