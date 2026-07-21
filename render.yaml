@@ -14,7 +14,7 @@ services:
       - key: F1_SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://f1-telemetry.vercel.app,*
+        value: https://ai-f1-telemetry.vercel.app,https://f1-telemetry.vercel.app,http://localhost:5173
       - key: LOG_LEVEL
         value: WARNING
       - key: PYTHON_VERSION
