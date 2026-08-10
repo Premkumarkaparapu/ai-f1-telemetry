@@ -15,7 +15,8 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 # ── Database ──────────────────────────────────────────────────────────────────
 DATABASE_URL: str = os.getenv(
     "DATABASE_URL",
-    f"sqlite:///{ROOT_DIR / 'f1_telemetry.db'}",
+    "postgresql://f1user:RuLlNmXxzLY8LMNTzA3I6iZ5QU3NBXqU"
+    "@dpg-d9bngujbc2fs73eg2oj0-a.singapore-postgres.render.com/f1_telemetry_xhv3"
 )
 
 # ── Production ────────────────────────────────────────────────────────────────
