@@ -140,4 +140,3 @@ def save_debug_log(payload: dict, db: Session = Depends(get_db)):
     db.add(record)
     db.commit()
     return {"status": "ok"}
-

@@ -24,7 +24,8 @@ class RedisManager:
         """Connect to Redis if URL is configured, else remain in offline fallback mode."""
         if not REDIS_URL:
             logger.info(
-                "REDIS_URL environment variable is empty. Redis disabled; using in-memory fallbacks."
+                "REDIS_URL environment variable is empty. "
+                "Redis disabled; using in-memory fallbacks."
             )
             return
 

@@ -35,15 +35,15 @@ async def test_async_jwks_client_caching():
     }
     mock_response.raise_for_status = MagicMock()
     http_mock.get.return_value = mock_response
-    
+
     # First fetch should call network client
     with patch("jwt.algorithms.RSAAlgorithm.from_jwk") as mock_from_jwk:
         mock_from_jwk.return_value = "public-key-object"
-        
+
         pub_key = await jwks_client.get_signing_key("key-1", http_mock)
         assert pub_key == "public-key-object"
         http_mock.get.assert_called_once()
-        
+
         # Second call within TTL should return cached key
         pub_key_cached = await jwks_client.get_signing_key("key-1", http_mock)
         assert pub_key_cached == "public-key-object"
@@ -68,12 +68,12 @@ async def test_verify_request_api_key():
 @pytest.mark.anyio
 async def test_require_scope_dependency():
     user = AuthenticatedUser("test-sub", ["ai:ask"])
-    
+
     # Authorized
     dep = require_scope("ai:ask")
     res = dep(user)
     assert res == user
-    
+
     # Unauthorized
     dep_unauth = require_scope("strategy:run")
     with pytest.raises(HTTPException) as exc:

@@ -6,7 +6,6 @@ import pandas as pd
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.app.core.config import RAW_DIR
 from backend.app.database.db import get_db
 from backend.app.repositories.lap_repository import LapRepository
 from backend.app.repositories.telemetry_repository import TelemetryRepository

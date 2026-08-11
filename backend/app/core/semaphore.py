@@ -5,8 +5,6 @@ using Redis Hash leases, falling back to asyncio.Semaphore if offline.
 """
 
 import asyncio
-import time
-import uuid
 
 from backend.app.core.logging import get_logger
 from backend.app.core.redis import get_redis_client
@@ -87,7 +85,7 @@ class ConcurrencySemaphore:
         # Local Fallback (non-blocking try_acquire style)
         if self._local_semaphore.locked():
             return False
-        
+
         try:
             # Attempt immediate acquire without blocking forever
             await asyncio.wait_for(self._local_semaphore.acquire(), timeout=0.1)
