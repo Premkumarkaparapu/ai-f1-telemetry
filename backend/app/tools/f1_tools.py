@@ -68,11 +68,11 @@ def get_driver_pace(
     laps = repo.get_by_driver(driver.driver_id, valid_only=True)
 
     if start_lap:
-        laps = [l for l in laps if l.lap_number >= start_lap]
+        laps = [lap for lap in laps if lap.lap_number >= start_lap]
     if end_lap:
-        laps = [l for l in laps if l.lap_number <= end_lap]
+        laps = [lap for lap in laps if lap.lap_number <= end_lap]
 
-    times = [l.lap_time_ms for l in laps if l.lap_time_ms]
+    times = [lap.lap_time_ms for lap in laps if lap.lap_time_ms]
     if not times:
         return {
             "driver": driver_code,
@@ -85,14 +85,14 @@ def get_driver_pace(
 
     lap_data = [
         {
-            "lap": l.lap_number,
-            "time_ms": l.lap_time_ms,
-            "time_str": _ms_to_str(l.lap_time_ms),
-            "compound": l.compound,
-            "tyre_life": l.tyre_life,
+            "lap": lap.lap_number,
+            "time_ms": lap.lap_time_ms,
+            "time_str": _ms_to_str(lap.lap_time_ms),
+            "compound": lap.compound,
+            "tyre_life": lap.tyre_life,
         }
-        for l in laps
-        if l.lap_time_ms
+        for lap in laps
+        if lap.lap_time_ms
     ]
 
     return {
@@ -135,14 +135,14 @@ def get_tire_degradation(
     stint_data = []
     for stint in stints:
         stint_laps = [
-            l for l in laps
-            if l.stint_number == stint.stint_number
-            and l.lap_time_ms
+            lap for lap in laps
+            if lap.stint_number == stint.stint_number
+            and lap.lap_time_ms
         ]
         if len(stint_laps) < 2:
             continue
 
-        times = [l.lap_time_ms for l in stint_laps]
+        times = [lap.lap_time_ms for lap in stint_laps]
         n = len(times)
 
         # Simple linear regression slope (ms per lap)
@@ -190,9 +190,9 @@ def get_sector_performance(
     repo = LapRepository(db)
     laps = repo.get_by_driver(driver.driver_id, valid_only=True)
 
-    s1 = [l.sector1_ms for l in laps if l.sector1_ms]
-    s2 = [l.sector2_ms for l in laps if l.sector2_ms]
-    s3 = [l.sector3_ms for l in laps if l.sector3_ms]
+    s1 = [lap.sector1_ms for lap in laps if lap.sector1_ms]
+    s2 = [lap.sector2_ms for lap in laps if lap.sector2_ms]
+    s3 = [lap.sector3_ms for lap in laps if lap.sector3_ms]
 
     def _stats(vals):
         if not vals:
@@ -271,7 +271,7 @@ def get_pit_window_tool(
     if not laps:
         return {"error": "No laps found"}
 
-    total_laps = max(l.lap_number for l in laps)
+    total_laps = max(lap.lap_number for lap in laps)
 
     # Use degradation to estimate crossover
     deg = get_tire_degradation(db, session_id, driver_code)
@@ -346,7 +346,7 @@ def get_strategy_comparison(
     pit_laps = [p.lap_number for p in pitstops]
     pit_durations = [p.duration_ms for p in pitstops]
 
-    times = [l.lap_time_ms for l in laps if l.lap_time_ms]
+    times = [lap.lap_time_ms for lap in laps if lap.lap_time_ms]
     total = sum(times) + sum(d for d in pit_durations if d)
 
     return {
@@ -363,7 +363,7 @@ def get_strategy_comparison(
                 "name": "1-stop MEDIUM→HARD",
                 "description": (
                     "Single stop around lap "
-                    f"{max(l.lap_number for l in laps) // 2}"
+                    f"{max(lap.lap_number for lap in laps) // 2}"
                 ),
             },
             {

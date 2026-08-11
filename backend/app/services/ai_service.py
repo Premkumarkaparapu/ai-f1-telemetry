@@ -8,8 +8,7 @@ it always goes through get_ai_service().
 import json
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Generator
-from functools import wraps
+from typing import Generator
 
 from backend.app.core.ai_config import (
     AI_PROVIDER, GEMINI_API_KEY, AI_MODEL_NAME,
@@ -193,7 +192,9 @@ class GeminiProvider(AIService):
             raise CircuitOpenException("Gemini API circuit is OPEN. Fast-failing query.")
         elif state == "HALF-OPEN":
             if not gemini_circuit.acquire_half_open_lock_sync():
-                raise CircuitOpenException("Gemini API circuit is HALF-OPEN. Lock busy; fast-failing query.")
+                raise CircuitOpenException(
+                    "Gemini API circuit is HALF-OPEN. Lock busy; fast-failing query."
+                )
 
         try:
             result = fn()
@@ -223,6 +224,7 @@ class GeminiProvider(AIService):
 
         try:
             temp = temperature or AI_TEMPERATURE
+
             def _call():
                 resp = self._client.models.generate_content(
                     model=self._model,
@@ -254,6 +256,7 @@ class GeminiProvider(AIService):
             )
 
         try:
+
             def _call():
                 config_args = {
                     "system_instruction": system_prompt,
@@ -297,6 +300,7 @@ class GeminiProvider(AIService):
             )
 
         try:
+
             def _call():
                 chunks = []
                 for chunk in self._client.models.generate_content_stream(

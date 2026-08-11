@@ -49,8 +49,7 @@ class SessionRepository:
         try:
             import pickle
             import pandas as pd
-            from backend.app.core.config import RAW_DIR
-            
+
             sess = self.db.query(SessionModel).filter(SessionModel.session_id == session_id).first()
             if not sess:
                 return []
@@ -76,10 +75,12 @@ class SessionRepository:
             for i, (_, r) in enumerate(wx.iterrows()):
                 if i % step != 0:
                     continue
-                
+
                 time_val = r.get("Time")
-                time_ms = int(time_val.total_seconds() * 1000) if time_val is not None and pd.notna(time_val) else None
-                
+                time_ms = None
+                if time_val is not None and pd.notna(time_val):
+                    time_ms = int(time_val.total_seconds() * 1000)
+
                 def f(col):
                     v = r.get(col)
                     return float(v) if v is not None and pd.notna(v) else None
@@ -93,11 +94,16 @@ class SessionRepository:
                         humidity=f("Humidity"),
                         pressure=f("Pressure"),
                         wind_speed=f("WindSpeed"),
-                        wind_dir=int(r.get("WindDirection")) if r.get("WindDirection") is not None and pd.notna(r.get("WindDirection")) else None,
+                        wind_dir=(
+                            int(r.get("WindDirection"))
+                            if r.get("WindDirection") is not None
+                            and pd.notna(r.get("WindDirection"))
+                            else None
+                        ),
                         rainfall=bool(r.get("Rainfall", False)),
                     )
                 )
-            
+
             if weather_records:
                 self.db.bulk_save_objects(weather_records)
                 self.db.commit()
