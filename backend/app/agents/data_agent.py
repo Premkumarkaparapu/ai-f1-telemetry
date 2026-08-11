@@ -50,7 +50,10 @@ class PitWindowInput(BaseModel):
 
 class StrategyComparisonInput(BaseModel):
     tool_name: Literal["get_strategy_comparison"] = "get_strategy_comparison"
-    driver_code: str = Field(..., description="Driver's 3-letter code to simulate strategy alternatives")
+    driver_code: str = Field(
+        ...,
+        description="Driver's 3-letter code to simulate strategy alternatives",
+    )
 
 
 class RaceSummaryInput(BaseModel):
@@ -73,7 +76,8 @@ class RoutingDecision(BaseModel):
 # System prompt for structured routing
 _ROUTING_SYSTEM_PROMPT = """You are an F1 Race Strategy & Telemetry routing agent.
 Given a user query, identify which F1 analytics tools must be called to provide data for the answer.
-Return the structured tools list. Be extremely conservative and only call tools directly relevant to the user query.
+Return the structured tools list. Be extremely conservative and
+only call tools directly relevant to the user query.
 """
 
 
@@ -197,7 +201,7 @@ class DataAgent:
             func = TOOL_REGISTRY[name]["func"]
             # Inject session_id
             args["session_id"] = session_id
-            
+
             # Map parameters correctly if missing but context exists
             if "driver_code" in args and driver_code and not args["driver_code"]:
                 args["driver_code"] = driver_code

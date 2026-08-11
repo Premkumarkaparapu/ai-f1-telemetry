@@ -1,31 +1,40 @@
-"""
-FastAPI application entrypoint.
+"""FastAPI application entrypoint.
+
 Start the server:  uvicorn backend.app.main:app --reload
 """
 
+from contextlib import asynccontextmanager
 from pathlib import Path
+import re
+import uuid
+
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import httpx
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 # Load .env before any config imports
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-
-from backend.app.core.config import API_PREFIX, CORS_ORIGINS
-from backend.app.core.logging import setup_logging
-from backend.app.api.v1 import sessions, drivers, laps, telemetry, predictions
-from backend.app.api.v1 import auth as auth_router
-from backend.app.api.v1 import ai as ai_router
+from backend.app.api.v1 import ai as ai_router  # noqa: E402
+from backend.app.api.v1 import auth as auth_router  # noqa: E402
+from backend.app.api.v1 import drivers, laps, predictions, sessions, telemetry  # noqa: E402
+from backend.app.core.ai_config import AI_PROVIDER  # noqa: E402
+from backend.app.core.config import API_PREFIX, CORS_ORIGINS, RAW_DIR  # noqa: E402
+from backend.app.core.logging import setup_logging  # noqa: E402
+from backend.app.core.request_context import set_request_id  # noqa: E402
+from backend.app.database.db import get_db  # noqa: E402
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 setup_logging("backend.log")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create database tables, connect to Redis, and create shared HTTP client
-    import httpx
     from backend.app.database.db import engine
     from backend.app.database.models import Base
     from sqlalchemy.exc import ProgrammingError
@@ -49,12 +58,12 @@ async def lifespan(app: FastAPI):
     await redis_manager.close()
     await app.state.http_client.aclose()
 
+
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="AI F1 Telemetry Platform",
+    title="F1 Telemetry & AI Strategy Platform",
     description=(
-        "ML-driven race strategy simulator and live telemetry dashboard "
-        "built on real F1 data via FastF1."
+        "Enterprise-hardened real-time telemetry analysis and strategy tool."
     ),
     version="1.0.0",
     docs_url="/docs",
@@ -71,12 +80,11 @@ app.add_middleware(
 )
 
 # ── Request ID middleware ─────────────────────────────────────────────────────
-import uuid
-import re
-from fastapi import Request
-from backend.app.core.request_context import set_request_id
 
-UUID_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+UUID_REGEX = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
+
 
 @app.middleware("http")
 async def add_request_id_header(request: Request, call_next):
@@ -85,11 +93,12 @@ async def add_request_id_header(request: Request, call_next):
         request_id = raw_id.lower()
     else:
         request_id = str(uuid.uuid4())
-    
+
     set_request_id(request_id)
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
+
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(sessions.router,       prefix=API_PREFIX)
@@ -101,12 +110,7 @@ app.include_router(auth_router.router,    prefix=API_PREFIX)
 app.include_router(ai_router.router,      prefix=API_PREFIX)
 
 
-
 # ── Health check ──────────────────────────────────────────────────────────────
-from fastapi.responses import JSONResponse
-from backend.app.database.db import get_db
-from sqlalchemy.orm import Session
-from fastapi import Depends
 
 @app.get("/health", tags=["Health"])
 def health():
@@ -126,7 +130,6 @@ def health_ready(db: Session = Depends(get_db)):
 
     # 1. Database check
     try:
-        from sqlalchemy import text
         db.execute(text("SELECT 1"))
         checks["database"] = "ok"
     except Exception as exc:
@@ -134,7 +137,6 @@ def health_ready(db: Session = Depends(get_db)):
 
     # 2. Storage write/access check
     try:
-        from backend.app.core.config import RAW_DIR
         RAW_DIR.mkdir(parents=True, exist_ok=True)
         test_file = RAW_DIR / ".ready_check"
         test_file.touch()
@@ -145,7 +147,6 @@ def health_ready(db: Session = Depends(get_db)):
 
     # 3. AI provider check (avoids expensive outbound Gemini calls)
     try:
-        from backend.app.core.ai_config import AI_PROVIDER
         checks["ai_provider"] = "configured" if AI_PROVIDER else "missing"
     except Exception:
         checks["ai_provider"] = "failed"

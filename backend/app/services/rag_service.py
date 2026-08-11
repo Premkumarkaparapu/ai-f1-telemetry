@@ -12,7 +12,6 @@ import re
 import pickle
 import time
 import numpy as np
-from pathlib import Path
 from typing import Optional
 
 from backend.app.core.ai_config import KNOWLEDGE_DIR, GEMINI_API_KEY
@@ -111,9 +110,12 @@ class RAGService:
                 # Generate embedding on the fly
                 if client is None:
                     client = self._get_gemini_client()
-                
+
                 try:
-                    logger.info("RAG: generating embedding for chunk '%s:%s'", rc.source, rc.section)
+                    logger.info(
+                        "RAG: generating embedding for chunk '%s:%s'",
+                        rc.source, rc.section
+                    )
                     res = client.models.embed_content(
                         model="gemini-embedding-2",
                         contents=rc.content

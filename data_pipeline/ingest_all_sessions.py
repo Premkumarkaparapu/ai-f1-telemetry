@@ -125,8 +125,9 @@ def ingest_session(ff1, year, event_name, session_type, db):
 
     if existing:
         print(
-            f"    [{session_type}] Already in DB (session_id={
-                existing.session_id}), checking missing drivers...")
+            f"    [{session_type}] Already in DB "
+            f"(session_id={existing.session_id}), checking missing drivers..."
+        )
         sess = existing
     else:
         sess = Session(
