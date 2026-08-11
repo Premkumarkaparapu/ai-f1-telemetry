@@ -64,7 +64,7 @@ class RateLimiter:
             try:
                 key = f"rate_limit:{ip}"
                 req_id = str(uuid.uuid4())
-                
+
                 # Exec script: KEYS=[key], ARGS=[limit, window, req_id]
                 result = await redis_client.eval(
                     LUA_RATE_LIMITER,
@@ -74,7 +74,7 @@ class RateLimiter:
                     str(self.window_seconds),
                     req_id,
                 )
-                
+
                 allowed, remaining, retry_after = result
                 if not allowed:
                     raise HTTPException(
@@ -104,7 +104,10 @@ class RateLimiter:
             if len(self.history[ip]) >= self.requests_limit:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Too many requests. Limit is {self.requests_limit} per {self.window_seconds}s.",
+                    detail=(
+                        f"Too many requests. Limit is {self.requests_limit} "
+                        f"per {self.window_seconds}s."
+                    ),
                     headers={"Retry-After": str(self.window_seconds // 2)},
                 )
 

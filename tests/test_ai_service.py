@@ -1,6 +1,5 @@
 """Tests for the AI service layer — MockProvider and factory."""
 
-import pytest
 
 from backend.app.services.ai_service import (
     AIService,

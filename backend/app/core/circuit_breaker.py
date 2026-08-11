@@ -36,7 +36,8 @@ class CircuitBreaker:
         current_time = time.time()
 
         if not redis_client:
-            if self._state == "OPEN" and (current_time - self._last_state_change) > self.cooldown_seconds:
+            time_diff = current_time - self._last_state_change
+            if self._state == "OPEN" and time_diff > self.cooldown_seconds:
                 self._state = "HALF-OPEN"
                 self._last_state_change = current_time
                 logger.info("Local circuit transitioned to HALF-OPEN.")
@@ -99,7 +100,10 @@ class CircuitBreaker:
             if self._failures >= self.max_failures:
                 self._state = "OPEN"
                 self._last_state_change = current_time
-                logger.error("Gemini circuit tripped OPEN locally after %d failures", self._failures)
+                logger.error(
+                    "Gemini circuit tripped OPEN locally after %d failures",
+                    self._failures,
+                )
             return
 
         try:

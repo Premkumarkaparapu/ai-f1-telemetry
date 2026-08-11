@@ -1,15 +1,13 @@
 """Tests for Milestone 7 — Production Deployment & Scalability."""
 
-import pytest
 import os
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from backend.app.main import app
 from backend.app.services.storage_service import (
     get_storage_provider, LocalStorageProvider, S3StorageProvider
 )
-from backend.app.core.request_context import get_request_id
 
 client = TestClient(app)
 
@@ -58,7 +56,7 @@ def test_request_id_middleware_generates_id():
 
 
 def test_request_id_middleware_propagates_incoming_id():
-    incoming_id = "test-session-trace-id-12345"
+    incoming_id = "12345678-1234-5678-1234-567812345678"
     res = client.get("/health/live", headers={"X-Request-ID": incoming_id})
     assert res.status_code == 200
     assert res.headers["X-Request-ID"] == incoming_id

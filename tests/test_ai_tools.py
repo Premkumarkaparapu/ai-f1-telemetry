@@ -1,6 +1,5 @@
 """Tests for the F1 analytical tools and orchestrator."""
 
-import pytest
 
 from backend.app.agents.orchestrator import (
     Orchestrator,

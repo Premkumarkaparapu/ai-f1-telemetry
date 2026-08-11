@@ -168,7 +168,11 @@ def require_scope(required_scope: str):
     """Enforces specific scope RBAC authorization."""
     def dependency(user: AuthenticatedUser = Depends(verify_request)):
         if not user.has_scope(required_scope):
-            logger.warning("Authorization failure: User %s missing scope %s", user.sub, required_scope)
+            logger.warning(
+                "Authorization failure: User %s missing scope %s",
+                user.sub,
+                required_scope,
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access forbidden: insufficient permissions"
