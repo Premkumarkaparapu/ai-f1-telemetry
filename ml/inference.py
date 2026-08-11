@@ -1,6 +1,5 @@
-"""
-ML Inference — AI F1 Telemetry Platform
-========================================
+"""ML Inference — AI F1 Telemetry Platform.
+
 Loads trained model artefacts and exposes clean prediction functions.
 
 All functions degrade gracefully:
@@ -23,15 +22,15 @@ except Exception:
 
 # ── Encoding tables (must match train.py) ────────────────────────────────────
 COMPOUND_ENCODE = {"SOFT": 0, "MEDIUM": 1, "HARD": 2, "INTERMEDIATE": 3, "WET": 4}
-SESSION_ENCODE  = {"R": 0, "Q": 1, "FP1": 2, "FP2": 3, "FP3": 4, "S": 5, "SQ": 6}
+SESSION_ENCODE = {"R": 0, "Q": 1, "FP1": 2, "FP2": 3, "FP3": 4, "S": 5, "SQ": 6}
 
 # Realistic per-compound defaults (ms) – fallback only
 DEFAULT_MEANS = {
-    "SOFT":         {"mean": 82000.0,  "std": 3500.0},
-    "MEDIUM":       {"mean": 85500.0,  "std": 4000.0},
-    "HARD":         {"mean": 88000.0,  "std": 4500.0},
-    "INTERMEDIATE": {"mean": 96000.0,  "std": 5000.0},
-    "WET":          {"mean": 104000.0, "std": 6000.0},
+    "SOFT": {"mean": 82000.0, "std": 3500.0},
+    "MEDIUM": {"mean": 85500.0, "std": 4000.0},
+    "HARD": {"mean": 88000.0, "std": 4500.0},
+    "INTERMEDIATE": {"mean": 96000.0, "std": 5000.0},
+    "WET": {"mean": 104000.0, "std": 6000.0},
 }
 
 
@@ -90,7 +89,7 @@ def _track_enc(track: str, meta: dict) -> int:
             return int(v)
     # Fallback: median
     vals = list(enc_map.values())
-    return int(sorted(vals)[len(vals)//2]) if vals else 10
+    return int(sorted(vals)[len(vals) // 2]) if vals else 10
 
 
 def _build_feature_row(
@@ -103,14 +102,13 @@ def _build_feature_row(
     meta: dict,
 ) -> list:
     """Build the exact feature vector expected by laptime_predictor."""
-    import math
     c_enc = COMPOUND_ENCODE.get(compound.upper(), 1)
     s_enc = SESSION_ENCODE.get(session_type.upper(), 0)
     t_enc = _track_enc(track, meta)
-    tl_sq   = tyre_life ** 2
+    tl_sq = tyre_life ** 2
     tl_root = math.sqrt(max(tyre_life, 0))
     is_first = int(lap_number == 1)
-    is_out   = int(tyre_life <= 2 and lap_number > 1)
+    is_out = int(tyre_life <= 2 and lap_number > 1)
 
     return [[
         tyre_life, tl_sq, tl_root,
@@ -140,8 +138,10 @@ def predict_lap_time(
 
     try:
         model = load_model("laptime_predictor")
-        feats = _build_feature_row(tyre_life, compound_upper, lap_number,
-                                   stint_number, session_type, track, meta)
+        feats = _build_feature_row(
+            tyre_life, compound_upper, lap_number,
+            stint_number, session_type, track, meta,
+        )
         pred = float(model.predict(np.array(feats))[0])
         return max(pred, 60_000.0)
     except FileNotFoundError:
@@ -152,8 +152,8 @@ def predict_lap_time(
     # Fallback: compound mean + tyre-age degradation curve
     means = get_compound_means()
     stats = means.get(compound_upper, {"mean": 90_000.0, "std": 3000.0})
-    base  = stats["mean"]
-    # Quadratic degradation: ~50ms/lap initially, accelerating after lap 20
+    base = stats["mean"]
+    # Quadratic degradation: ~55ms/lap initially, accelerating after lap 20
     age_penalty = max(0, tyre_life - 3) * 55 + max(0, tyre_life - 20) ** 1.5 * 10
     return max(base + age_penalty, 60_000.0)
 
@@ -191,7 +191,7 @@ def predict_tire_degradation(
         c_enc = COMPOUND_ENCODE.get(compound_upper, 1)
         t_enc = _track_enc(track, meta)
         X = np.array([
-            [life, life**2, math.sqrt(max(life,0)), c_enc, t_enc]
+            [life, life ** 2, math.sqrt(max(life, 0)), c_enc, t_enc]
             for life in tyre_life_range
         ])
         preds = model.predict(X).tolist()
@@ -204,9 +204,9 @@ def predict_tire_degradation(
     # 3. Quadratic fallback from compound mean
     means = get_compound_means()
     stats = means.get(compound_upper, {"mean": 90_000.0, "std": 3000.0})
-    base  = stats["mean"]
+    base = stats["mean"]
     return [
-        max(base + max(0, life - 3) * 55 + max(0, life - 20)**1.5 * 10, 60_000.0)
+        max(base + max(0, life - 3) * 55 + max(0, life - 20) ** 1.5 * 10, 60_000.0)
         for life in tyre_life_range
     ]
 
@@ -231,8 +231,8 @@ def simulate_race_strategy(
     lap_compound: dict = {}
     for i in range(len(compounds)):
         start = stint_boundaries[i] + 1
-        end   = stint_boundaries[min(i + 1, len(stint_boundaries) - 1)]
-        cmp   = compounds[i].upper() if i < len(compounds) else "MEDIUM"
+        end = stint_boundaries[min(i + 1, len(stint_boundaries) - 1)]
+        cmp = compounds[i].upper() if i < len(compounds) else "MEDIUM"
         for lap_num in range(start, end + 1):
             lap_compound[lap_num] = cmp
 
@@ -248,8 +248,8 @@ def simulate_race_strategy(
     for lap_num in range(1, total_laps + 1):
         stint_idx = stint_for_lap(lap_num)
         stint_ages[stint_idx] = stint_ages.get(stint_idx, 0) + 1
-        tyre_age  = stint_ages[stint_idx]
-        compound  = lap_compound.get(lap_num, "MEDIUM")
+        tyre_age = stint_ages[stint_idx]
+        compound = lap_compound.get(lap_num, "MEDIUM")
 
         if lap_num in actual_laps and actual_laps[lap_num]:
             lap_time = float(actual_laps[lap_num])
@@ -265,9 +265,9 @@ def simulate_race_strategy(
 
     return {
         "total_race_time_ms": sum(per_lap_times),
-        "per_lap_times_ms":   per_lap_times,
-        "pit_stops":          len(pit_laps),
-        "compounds_used":     list(dict.fromkeys(
+        "per_lap_times_ms": per_lap_times,
+        "pit_stops": len(pit_laps),
+        "compounds_used": list(dict.fromkeys(
             [lap_compound.get(n, "MEDIUM") for n in range(1, total_laps + 1)]
         )),
     }
@@ -290,35 +290,44 @@ def predict_pit_window(
     """
     remaining_laps = total_laps - current_lap
     if remaining_laps <= 0:
-        return {"earliest_lap": current_lap, "optimal_lap": current_lap,
-                "latest_lap": current_lap, "reasoning": "Race effectively over."}
+        return {
+            "earliest_lap": current_lap,
+            "optimal_lap": current_lap,
+            "latest_lap": current_lap,
+            "reasoning": "Race effectively over.",
+        }
 
     earliest_lap = min(current_lap + 2, total_laps - 8)
-    latest_lap   = max(earliest_lap + 2, total_laps - 6)
+    latest_lap = max(earliest_lap + 2, total_laps - 6)
     compound_upper = current_compound.upper()
     fresh_compound = _suggest_next_compound(compound_upper)
 
     # Pre-compute stay-out degradation
-    stay_range  = list(range(current_tyre_life + 1,
-                              current_tyre_life + remaining_laps + 2))
-    stay_times  = predict_tire_degradation(compound_upper, stay_range, track, session_type)
+    stay_range = list(
+        range(current_tyre_life + 1, current_tyre_life + remaining_laps + 2)
+    )
+    stay_times = predict_tire_degradation(
+        compound_upper, stay_range, track, session_type
+    )
 
-    best_lap  = earliest_lap
+    best_lap = earliest_lap
     best_cost = float("inf")
 
     for candidate_pit in range(earliest_lap, latest_lap + 1):
-        laps_to_pit   = candidate_pit - current_lap
+        laps_to_pit = candidate_pit - current_lap
         laps_after_pit = total_laps - candidate_pit
 
-        stay_cost  = sum(stay_times[:laps_to_pit])
+        stay_cost = sum(stay_times[:laps_to_pit])
         fresh_range = list(range(1, laps_after_pit + 1))
-        fresh_times = predict_tire_degradation(fresh_compound, fresh_range, track, session_type)
-        fresh_cost  = sum(fresh_times) + 25_000  # pit lane loss
+        fresh_times = predict_tire_degradation(
+            fresh_compound, fresh_range, track, session_type
+        )
+        fresh_cost = sum(fresh_times) + 25_000  # pit lane loss
 
         total_cost = stay_cost + fresh_cost
         if total_cost < best_cost:
             best_cost = total_cost
-            best_lap  = candidate_pit
+            best_lap = candidate_pit
 
     tyre_age_at_pit = current_tyre_life + (best_lap - current_lap)
     reasoning = (
@@ -329,9 +338,9 @@ def predict_pit_window(
 
     return {
         "earliest_lap": earliest_lap,
-        "optimal_lap":  best_lap,
-        "latest_lap":   latest_lap,
-        "reasoning":    reasoning,
+        "optimal_lap": best_lap,
+        "latest_lap": latest_lap,
+        "reasoning": reasoning,
     }
 
 
