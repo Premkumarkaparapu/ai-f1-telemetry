@@ -9,7 +9,7 @@ frontend calculation simple and avoid timezone serialization issues.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 # ── Session ───────────────────────────────────────────────────────────────────
@@ -191,6 +191,20 @@ class StrategySimRequest(BaseModel):
     pit_laps: list[int]                # e.g. [28, 52]
     compounds: list[str]               # one per stint, len = len(pit_laps) + 1
     pit_time_loss_ms: int = 25_000     # pit lane time loss in ms
+
+    @field_validator("pit_laps")
+    @classmethod
+    def validate_pit_laps(cls, v):
+        if len(v) > 5:
+            raise ValueError("Maximum of 5 pit stops allowed in strategy simulation")
+        return v
+
+    @field_validator("compounds")
+    @classmethod
+    def validate_compounds(cls, v):
+        if len(v) > 6:
+            raise ValueError("Maximum of 6 stint compounds allowed in strategy simulation")
+        return v
 
 
 class StrategySimOut(BaseModel):

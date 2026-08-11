@@ -78,11 +78,14 @@ def _load_live_telemetry(year: int, event: str, session_type: str,
                          driver_code: str, lap_number: int) -> list[dict]:
     """Load telemetry for any driver/lap from FastF1 pickle cache."""
     slug = f"{year}_{event.replace(' ', '_')}_{session_type}.pkl"
-    raw_path = RAW_DIR / slug
-    if not raw_path.exists():
+    from backend.app.services.storage_service import get_storage_provider
+    try:
+        provider = get_storage_provider()
+        raw_path = provider.get_file(slug)
+    except Exception as exc:
         raise HTTPException(
             status_code=404,
-            detail=f"Session cache not found: {slug}. Run data ingestion first."
+            detail=f"Session cache not available: {exc}"
         )
 
     with open(raw_path, "rb") as f:

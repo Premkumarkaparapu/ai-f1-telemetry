@@ -15,6 +15,7 @@ import Degradation from './pages/Degradation';
 import LiveReplay from './pages/LiveReplay';
 import StrategySimulator from './pages/StrategySimulator';
 import About from './pages/About';
+import AIRaceEngineer from './pages/AIRaceEngineer';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 13 }) => (
@@ -43,6 +44,7 @@ const ICONS = {
   login:       'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4 M10 17l5-5-5-5 M15 12H3',
   docs:        'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
   github:      'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22',
+  ai:          'M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7 7 0 0 1 14 23h-4a7 7 0 0 1-6.93-4H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z M9 17a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M15 17a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
 };
 
 const NAV = [
@@ -62,6 +64,8 @@ const NAV = [
   { section: 'PREDICTIONS' },
   { id: 'prediction',   label: 'Lap Time Prediction', icon: 'prediction' },
   { id: 'strategy',     label: 'Strategy Simulator',  icon: 'strategy' },
+  { section: 'AI ENGINEER' },
+  { id: 'ai-engineer',  label: 'AI Race Engineer',    icon: 'ai' },
   { section: 'ABOUT' },
   { id: 'about', label: 'Platform Internals', icon: 'about', private: true },
 ];
@@ -127,6 +131,7 @@ function PageContent({ page, navigate, onLoginClick }) {
     case 'prediction':   return <LiveReplay />;
     case 'strategy':     return <StrategySimulator />;
     case 'about':        return <About />;
+    case 'ai-engineer':  return <AIRaceEngineer />;
     default:             return <Dashboard />;
   }
 }

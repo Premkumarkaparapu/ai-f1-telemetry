@@ -112,8 +112,15 @@ export default function TelemetryPage() {
   useEffect(() => {
     if (!lapId) { setTelemetry([]); return; }
     setLoading(true);
-    api.getTelemetry(lapId).then(setTelemetry).catch(() => setTelemetry([])).finally(() => setLoading(false));
-  }, [lapId]);
+    const lap = laps.find(l => String(l.lap_id) === lapId);
+    const drv = drivers.find(d => String(d.driver_id) === driverId);
+    api.getTelemetry(
+      lapId,
+      sessionId,
+      drv?.code,
+      lap?.lap_number
+    ).then(setTelemetry).catch(() => setTelemetry([])).finally(() => setLoading(false));
+  }, [lapId, laps, drivers, driverId, sessionId]);
 
   const channel = CHANNELS.find(c => c.key === activeChannel) || CHANNELS[0];
   const selectedLap = laps.find(l => String(l.lap_id) === lapId);

@@ -8,6 +8,8 @@ from backend.app.repositories.prediction_repository import PredictionRepository
 from backend.app.repositories.lap_repository import LapRepository
 from backend.app.repositories.driver_repository import DriverRepository
 from backend.app.services.prediction_service import PredictionService
+from backend.app.core.rate_limit import rate_limit
+from backend.app.api.v1.security import require_scope
 from backend.app.schemas.schemas import (
     PredictionRequest, PredictionOut,
     StrategySimRequest, StrategySimOut,
@@ -32,6 +34,7 @@ def _get_service(db: Session = Depends(get_db)) -> PredictionService:
     response_model=PredictionOut,
     status_code=201,
     summary="Run a lap-time prediction for a driver",
+    dependencies=[Depends(rate_limit), Depends(require_scope("strategy:run"))]
 )
 def predict(request: PredictionRequest, svc: PredictionService = Depends(_get_service)):
     """Predicts the next lap time using tyre state and historical data.
@@ -48,6 +51,7 @@ def predict(request: PredictionRequest, svc: PredictionService = Depends(_get_se
     response_model=StrategySimOut,
     status_code=201,
     summary="Simulate a full race strategy",
+    dependencies=[Depends(rate_limit), Depends(require_scope("strategy:run"))]
 )
 def simulate_strategy(
     request: StrategySimRequest,
