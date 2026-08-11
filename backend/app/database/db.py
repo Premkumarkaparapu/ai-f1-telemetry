@@ -19,11 +19,21 @@ connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
+engine_args = {
+    "echo": False,
+    "pool_pre_ping": True,
+}
+
+# Apply connection pooling only for PostgreSQL/remote databases
+if not DATABASE_URL.startswith("sqlite"):
+    engine_args["pool_size"] = 5
+    engine_args["max_overflow"] = 5
+    engine_args["pool_recycle"] = 1800
+
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
-    echo=False,          # set True temporarily to see SQL statements while debugging
-    pool_pre_ping=True,  # detect stale connections on checkout
+    **engine_args
 )
 
 # Enable WAL mode for SQLite — dramatically improves concurrent read performance.

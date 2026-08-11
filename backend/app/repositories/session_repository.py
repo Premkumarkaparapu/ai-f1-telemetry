@@ -35,12 +35,83 @@ class SessionRepository:
         )
 
     def get_weather(self, session_id: int) -> list[Weather]:
-        return (
+        # 1. Try DB first
+        records = (
             self.db.query(Weather)
             .filter(Weather.session_id == session_id)
             .order_by(Weather.time_ms)
             .all()
         )
+        if len(records) > 0:
+            return records
+
+        # 2. Dynamic fallback to FastF1 pickle cache
+        try:
+            import pickle
+            import pandas as pd
+            from backend.app.core.config import RAW_DIR
+            
+            sess = self.db.query(SessionModel).filter(SessionModel.session_id == session_id).first()
+            if not sess:
+                return []
+
+            slug = f"{sess.year}_{sess.event_name.replace(' ', '_')}_{sess.session_type}.pkl"
+            from backend.app.services.storage_service import get_storage_provider
+            try:
+                provider = get_storage_provider()
+                raw_path = provider.get_file(slug)
+            except Exception:
+                return []
+
+            with open(raw_path, "rb") as f:
+                ff1_session = pickle.load(f)
+
+            wx = ff1_session.weather_data
+            if wx is None or wx.empty:
+                return []
+
+            # Save weather readings to DB (downsampled to ~30 readings to avoid cluttering)
+            step = max(1, len(wx) // 30)
+            weather_records = []
+            for i, (_, r) in enumerate(wx.iterrows()):
+                if i % step != 0:
+                    continue
+                
+                time_val = r.get("Time")
+                time_ms = int(time_val.total_seconds() * 1000) if time_val is not None and pd.notna(time_val) else None
+                
+                def f(col):
+                    v = r.get(col)
+                    return float(v) if v is not None and pd.notna(v) else None
+
+                weather_records.append(
+                    Weather(
+                        session_id=session_id,
+                        time_ms=time_ms,
+                        air_temp=f("AirTemp"),
+                        track_temp=f("TrackTemp"),
+                        humidity=f("Humidity"),
+                        pressure=f("Pressure"),
+                        wind_speed=f("WindSpeed"),
+                        wind_dir=int(r.get("WindDirection")) if r.get("WindDirection") is not None and pd.notna(r.get("WindDirection")) else None,
+                        rainfall=bool(r.get("Rainfall", False)),
+                    )
+                )
+            
+            if weather_records:
+                self.db.bulk_save_objects(weather_records)
+                self.db.commit()
+                # Re-query to return fresh managed objects
+                return (
+                    self.db.query(Weather)
+                    .filter(Weather.session_id == session_id)
+                    .order_by(Weather.time_ms)
+                    .all()
+                )
+        except Exception:
+            pass
+
+        return []
 
     def get_standings(self, session_id: int) -> list[dict]:
         """Return per-driver race standings ordered by fastest lap."""

@@ -36,7 +36,7 @@ function TrackMap({ telemetry }) {
 
   if (!segments.length) return (
     <div className="empty-state" style={{ height: 210 }}>
-      <span>Loading track map…</span>
+      <span>No track map data available</span>
     </div>
   );
 
@@ -74,7 +74,7 @@ function SpeedThrottleChart({ telemetry }) {
     }));
   }, [telemetry]);
 
-  if (!data.length) return <div className="empty-state" style={{ height: 165 }}>Loading telemetry…</div>;
+  if (!data.length) return <div className="empty-state" style={{ height: 165 }}>No telemetry data for this lap</div>;
 
   return (
     <ResponsiveContainer width="100%" height={165}>
@@ -344,7 +344,7 @@ export default function Dashboard() {
       drv?.code,
       lap?.lap_number
     ).then(setTelemetry).catch(() => setTelemetry([])).finally(() => setLoadingTel(false));
-  }, [selectedLapId]);
+  }, [selectedLapId, laps, drivers, selectedDriverId, selectedSessionId]);
 
   useEffect(() => {
     if (!compareDriverId) { setCompareTelemetry([]); return; }

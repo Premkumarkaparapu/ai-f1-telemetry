@@ -9,13 +9,15 @@ let _getClerkToken = null;
 export function setClerkGetToken(fn) { _getClerkToken = fn; }
 
 async function authHeaders() {
+  const apiKey = import.meta.env.VITE_API_KEY || 'dev_secret_key';
+  const headers = { 'X-API-Key': apiKey };
   try {
     if (_getClerkToken) {
       const token = await _getClerkToken();
-      if (token) return { Authorization: `Bearer ${token}` };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
     }
   } catch (_) {}
-  return {};
+  return headers;
 }
 
 async function get(path) {
@@ -96,8 +98,10 @@ export const api = {
     } catch (_) {}
     // Fall back to live if we have the extra context
     if (sessionId && driverCode && lapNumber) {
-      return get(`/telemetry/live/${sessionId}/${driverCode}/${lapNumber}`)
-        .then(pts => pts.map(normalizeTelPoint));
+      try {
+        return await get(`/telemetry/live/${sessionId}/${driverCode}/${lapNumber}`)
+          .then(pts => pts.map(normalizeTelPoint));
+      } catch (_) {}
     }
     return [];
   },
@@ -118,5 +122,41 @@ export const api = {
   getMe:    ()      => get('/auth/me'),
   updateMe: (body)  => put('/auth/me', body),
   getTeams: ()      => get('/auth/teams'),
+
+  // AI Race Engineer
+  aiAsk:      (body) => post('/ai/ask', body),
+  aiSuggest:  (sessionId, driverCode) => {
+    let path = '/ai/suggested-questions';
+    const params = [];
+    if (sessionId) params.push(`session_id=${sessionId}`);
+    if (driverCode) params.push(`driver_code=${driverCode}`);
+    if (params.length) path += '?' + params.join('&');
+    return get(path);
+  },
+  aiHealth:   () => get('/ai/health'),
+  aiStream:   async function* (body) {
+    const headers = await authHeaders();
+    const res = await fetch(`${BASE}/ai/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try { yield JSON.parse(line.slice(6)); } catch (_) {}
+        }
+      }
+    }
+  },
 };
 

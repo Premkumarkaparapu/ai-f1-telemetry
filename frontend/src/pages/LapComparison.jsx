@@ -9,6 +9,8 @@ import { msToLapTime, msToDelta, CompoundBadge, compoundColor } from '../utils.j
 const COLORS = { 1: '#60a5fa', 2: '#f87171' };
 
 export default function LapComparison() {
+  const [sessions, setSessions] = useState([]);
+  const [sessionId, setSessionId] = useState('1');
   const [drivers, setDrivers] = useState([]);
   const [d1Id, setD1Id] = useState(''); const [d2Id, setD2Id] = useState('');
   const [laps1, setLaps1] = useState([]); const [laps2, setLaps2] = useState([]);
@@ -18,12 +20,21 @@ export default function LapComparison() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.getDrivers(1).then(d => {
+    api.getSessions().then(s => {
+      setSessions(s);
+      if (s.length) setSessionId(String(s[0].session_id));
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    setLoading(true);
+    api.getDrivers(sessionId).then(d => {
       setDrivers(d);
       if (d.length > 0) setD1Id(String(d[0].driver_id));
       if (d.length > 1) setD2Id(String(d[1].driver_id));
-    }).catch(() => {});
-  }, []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [sessionId]);
 
   useEffect(() => {
     if (!d1Id) return;
@@ -33,6 +44,8 @@ export default function LapComparison() {
       if (valid.length) {
         const fastest = valid.reduce((a,b) => a.lap_time_ms < b.lap_time_ms ? a : b);
         setLap1Id(String(fastest.lap_id));
+      } else {
+        setLap1Id('');
       }
     }).catch(() => {});
   }, [d1Id]);
@@ -45,19 +58,29 @@ export default function LapComparison() {
       if (valid.length) {
         const fastest = valid.reduce((a,b) => a.lap_time_ms < b.lap_time_ms ? a : b);
         setLap2Id(String(fastest.lap_id));
+      } else {
+        setLap2Id('');
       }
     }).catch(() => {});
   }, [d2Id]);
 
   useEffect(() => {
     if (!lap1Id) { setTel1([]); return; }
-    api.getTelemetry(lap1Id).then(setTel1).catch(() => setTel1([]));
-  }, [lap1Id]);
+    const lap = laps1.find(l => String(l.lap_id) === lap1Id);
+    const drv = drivers.find(d => String(d.driver_id) === d1Id);
+    api.getTelemetry(lap1Id, sessionId, drv?.code, lap?.lap_number)
+      .then(setTel1)
+      .catch(() => setTel1([]));
+  }, [lap1Id, laps1, drivers, d1Id, sessionId]);
 
   useEffect(() => {
     if (!lap2Id) { setTel2([]); return; }
-    api.getTelemetry(lap2Id).then(setTel2).catch(() => setTel2([]));
-  }, [lap2Id]);
+    const lap = laps2.find(l => String(l.lap_id) === lap2Id);
+    const drv = drivers.find(d => String(d.driver_id) === d2Id);
+    api.getTelemetry(lap2Id, sessionId, drv?.code, lap?.lap_number)
+      .then(setTel2)
+      .catch(() => setTel2([]));
+  }, [lap2Id, laps2, drivers, d2Id, sessionId]);
 
   const lap1 = useMemo(() => laps1.find(l => String(l.lap_id) === lap1Id), [laps1, lap1Id]);
   const lap2 = useMemo(() => laps2.find(l => String(l.lap_id) === lap2Id), [laps2, lap2Id]);
@@ -94,6 +117,11 @@ export default function LapComparison() {
           <div className="page-title">⚡ Lap Comparison</div>
           <div className="page-desc">Overlay telemetry traces for any two drivers side-by-side</div>
         </div>
+        <select className="filter-select" value={sessionId} onChange={e => setSessionId(e.target.value)}>
+          {sessions.map(s => (
+            <option key={s.session_id} value={s.session_id}>{s.event_name} {s.year}</option>
+          ))}
+        </select>
       </div>
 
       {/* Driver / Lap selectors */}
