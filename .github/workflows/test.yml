@@ -23,6 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+          pip install pip-audit
 
       - name: Lint with flake8
         run: |
@@ -32,6 +33,29 @@ jobs:
             curl -X POST -H "Content-Type: application/json" -d @payload.json https://f1-telemetry-api.onrender.com/api/v1/predict/debug-log || true
           fi
           flake8 backend/ data_pipeline/ tests/ ml/ --max-line-length=100
+
+      - name: Run pip-audit for Python CVE scanning
+        run: |
+          pip-audit -r backend/requirements.txt
+
+      - name: Run npm audit for Frontend CVE scanning
+        run: |
+          cd frontend
+          npm audit --audit-level=high
+
+      - name: Build Docker Image
+        run: |
+          docker build -t f1-backend:latest -f backend/Dockerfile backend
+
+      - name: Run Trivy vulnerability scanner on Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'f1-backend:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
 
       - name: Run offline unit tests
         env:
