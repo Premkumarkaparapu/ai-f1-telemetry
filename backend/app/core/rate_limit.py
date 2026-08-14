@@ -114,11 +114,21 @@ class RateLimiter:
             self.history[ip].append(now)
 
 
+import os  # noqa: E402
+
+RATE_LIMIT_LIMIT = int(os.getenv("RATE_LIMIT_LIMIT", "100"))
+RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+RATE_LIMIT_DISABLED = os.getenv("RATE_LIMIT_DISABLED", "false").lower() == "true"
+
 # Global rate limiter instance
-limiter = RateLimiter(requests_limit=10, window_seconds=60)
+limiter = RateLimiter(requests_limit=RATE_LIMIT_LIMIT, window_seconds=RATE_LIMIT_WINDOW)
 
 
 async def rate_limit(request: Request) -> None:
     """FastAPI dependency to enforce rate limiting on endpoints."""
-    client_ip = request.client.host if request.client else "unknown"
+    if RATE_LIMIT_DISABLED:
+        return
+    client_ip = request.headers.get("x-forwarded-for") or (
+        request.client.host if request.client else "unknown"
+    )
     await limiter.check_limit(client_ip)

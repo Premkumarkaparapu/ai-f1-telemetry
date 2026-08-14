@@ -35,6 +35,25 @@ setup_logging("pipeline.log")
 logger = get_logger(__name__)
 
 
+def to_db(val, target_type=None):
+    """Clean pandas NaN / Python None to database NULLs, with optional type conversions."""
+    import numpy as np
+    import pandas as pd
+    if val is None:
+        return None
+    if pd.isna(val) or (isinstance(val, float) and np.isnan(val)):
+        return None
+    if target_type:
+        try:
+            # Handle float conversions to int (e.g. 3.0 -> 3)
+            if target_type is int and isinstance(val, float):
+                return int(val)
+            return target_type(val)
+        except Exception:
+            return None
+    return val
+
+
 def _is_already_loaded(db, year: int, event: str, session_type: str) -> bool:
     """Check DatasetMetadata for an existing import of this session."""
     exists = (
@@ -86,13 +105,13 @@ def load_session(year: int, event: str, session_type: str) -> None:
         weather_records = [
             Weather(
                 session_id=session_rec.session_id,
-                time_ms=row.get("time_ms"),
-                air_temp=row.get("air_temp"),
-                track_temp=row.get("track_temp"),
-                humidity=row.get("humidity"),
-                pressure=row.get("pressure"),
-                wind_speed=row.get("wind_speed"),
-                wind_dir=row.get("wind_dir"),
+                time_ms=to_db(row.get("time_ms"), int),
+                air_temp=to_db(row.get("air_temp"), float),
+                track_temp=to_db(row.get("track_temp"), float),
+                humidity=to_db(row.get("humidity"), float),
+                pressure=to_db(row.get("pressure"), float),
+                wind_speed=to_db(row.get("wind_speed"), float),
+                wind_dir=to_db(row.get("wind_dir"), float),
                 rainfall=bool(row.get("rainfall", False)),
             )
             for _, row in weather_df.iterrows()
@@ -138,18 +157,10 @@ def load_session(year: int, event: str, session_type: str) -> None:
                         driver_id=driver_rec.driver_id,
                         session_id=session_rec.session_id,
                         stint_number=int(stint_num),
-                        compound=(
-                            stint_group["compound"].iloc[0]
-                            if "compound" in stint_group.columns else None
-                        ),
-                        start_lap=int(stint_group["LapNumber"].min()
-                                      ) if "LapNumber" in stint_group.columns else None,
-                        end_lap=int(stint_group["LapNumber"].max()
-                                    ) if "LapNumber" in stint_group.columns else None,
-                        tyre_life_start=(
-                            int(stint_group["tyre_life"].iloc[0])
-                            if "tyre_life" in stint_group.columns else None
-                        ),
+                        compound=to_db(stint_group["compound"].iloc[0]),
+                        start_lap=to_db(stint_group["LapNumber"].min(), int),
+                        end_lap=to_db(stint_group["LapNumber"].max(), int),
+                        tyre_life_start=to_db(stint_group["tyre_life"].iloc[0], int),
                     )
                     db.add(stint_rec)
 
@@ -165,19 +176,19 @@ def load_session(year: int, event: str, session_type: str) -> None:
                 lap_rec = Lap(
                     driver_id=driver_rec.driver_id,
                     lap_number=lap_num,
-                    lap_time_ms=lap_row.get("lap_time_ms"),
-                    fuel_corrected_lap_time_ms=lap_row.get("fuel_corrected_lap_time_ms"),
-                    sector1_ms=lap_row.get("sector1_ms"),
-                    sector2_ms=lap_row.get("sector2_ms"),
-                    sector3_ms=lap_row.get("sector3_ms"),
-                    compound=lap_row.get("compound"),
-                    tyre_life=int(lap_row.get("tyre_life", 0)) if lap_row.get(
-                        "tyre_life") else None,
-                    stint_number=int(lap_row.get("stint_number", 0)
-                                     ) if lap_row.get("stint_number") else None,
+                    lap_time_ms=to_db(lap_row.get("lap_time_ms"), int),
+                    fuel_corrected_lap_time_ms=to_db(
+                        lap_row.get("fuel_corrected_lap_time_ms"), float
+                    ),
+                    sector1_ms=to_db(lap_row.get("sector1_ms"), int),
+                    sector2_ms=to_db(lap_row.get("sector2_ms"), int),
+                    sector3_ms=to_db(lap_row.get("sector3_ms"), int),
+                    compound=to_db(lap_row.get("compound")),
+                    tyre_life=to_db(lap_row.get("tyre_life"), int),
+                    stint_number=to_db(lap_row.get("stint_number"), int),
                     is_pit_lap=bool(lap_row.get("is_pit_lap", False)),
                     is_valid=bool(lap_row.get("is_valid", True)),
-                    track_status=str(lap_row.get("track_status", "1")),
+                    track_status=str(to_db(lap_row.get("track_status"), str) or "1"),
                 )
                 db.add(lap_rec)
                 db.flush()
@@ -188,11 +199,9 @@ def load_session(year: int, event: str, session_type: str) -> None:
                 if lap_row.get("compound") or lap_row.get("tyre_life"):
                     tyre_rec = Tyre(
                         lap_id=lap_rec.lap_id,
-                        compound=lap_row.get("compound"),
-                        tyre_life=int(lap_row.get("tyre_life", 0)) if lap_row.get(
-                            "tyre_life") else None,
-                        degradation_factor=float(deg_factor) if deg_factor and not (
-                            deg_factor != deg_factor) else None,
+                        compound=to_db(lap_row.get("compound")),
+                        tyre_life=to_db(lap_row.get("tyre_life"), int),
+                        degradation_factor=to_db(deg_factor, float),
                     )
                     db.add(tyre_rec)
 
@@ -208,19 +217,19 @@ def load_session(year: int, event: str, session_type: str) -> None:
                         tel_records.append(TelemetryPoint(
                             lap_id=lap_rec.lap_id,
                             session_id=session_rec.session_id,
-                            time_ms=t.get("time_ms"),
-                            distance_m=t.get("distance_m"),
-                            speed_kmh=t.get("speed_kmh"),
-                            rpm=int(t["RPM"]) if "RPM" in t and t["RPM"] == t["RPM"] else None,
-                            gear=int(t.get("gear", 0)) if t.get("gear") == t.get("gear") else None,
-                            throttle_pct=t.get("throttle_pct"),
+                            time_ms=to_db(t.get("time_ms"), int),
+                            distance_m=to_db(t.get("distance_m"), float),
+                            speed_kmh=to_db(t.get("speed_kmh"), float),
+                            rpm=to_db(t.get("RPM"), int),
+                            gear=to_db(t.get("gear"), int),
+                            throttle_pct=to_db(t.get("throttle_pct"), float),
                             brake=bool(t.get("brake", False)),
                             drs=bool(t.get("drs", False)),
-                            x=t.get("X"),
-                            y=t.get("Y"),
-                            z=t.get("Z"),
-                            status=str(t.get("Status", ""))[:20] if t.get("Status") else None,
-                            source=str(t.get("Source", ""))[:20] if t.get("Source") else None,
+                            x=to_db(t.get("X"), float),
+                            y=to_db(t.get("Y"), float),
+                            z=to_db(t.get("Z"), float),
+                            status=to_db(t.get("Status"), str),
+                            source=to_db(t.get("Source"), str),
                         ))
                     db.bulk_save_objects(tel_records)
                     total_tel_written += len(tel_records)
