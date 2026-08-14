@@ -182,25 +182,60 @@ class GeminiProvider(AIService):
                         continue
                 raise
 
-    def _execute_under_breaker(self, fn):
+    def _execute_under_breaker(self, fn, api_method: str = "complete"):
         """Execute a function under the Gemini circuit breaker state controls."""
         from backend.app.core.circuit_breaker import gemini_circuit, CircuitOpenException
         from fastapi import HTTPException
+        from backend.app.core.metrics import (
+            GEMINI_REQUESTS_TOTAL,
+            GEMINI_REQUEST_DURATION_SECONDS,
+            GEMINI_ERRORS_TOTAL,
+        )
 
         state = gemini_circuit.get_state_sync()
         if state == "OPEN":
+            GEMINI_ERRORS_TOTAL.labels(
+                model_name=self._model,
+                error_type="circuit_open",
+            ).inc()
             raise CircuitOpenException("Gemini API circuit is OPEN. Fast-failing query.")
         elif state == "HALF-OPEN":
             if not gemini_circuit.acquire_half_open_lock_sync():
+                GEMINI_ERRORS_TOTAL.labels(
+                    model_name=self._model,
+                    error_type="circuit_half_open_lock_busy",
+                ).inc()
                 raise CircuitOpenException(
                     "Gemini API circuit is HALF-OPEN. Lock busy; fast-failing query."
                 )
 
+        start_time = time.perf_counter()
         try:
             result = fn()
+            duration = time.perf_counter() - start_time
+            GEMINI_REQUESTS_TOTAL.labels(
+                model_name=self._model,
+                api_method=api_method,
+                status="success",
+            ).inc()
+            GEMINI_REQUEST_DURATION_SECONDS.labels(
+                model_name=self._model,
+                api_method=api_method,
+            ).observe(duration)
             gemini_circuit.record_success_sync()
             return result
         except Exception as exc:
+            duration = time.perf_counter() - start_time
+            err_type = type(exc).__name__
+            GEMINI_REQUESTS_TOTAL.labels(
+                model_name=self._model,
+                api_method=api_method,
+                status="error",
+            ).inc()
+            GEMINI_ERRORS_TOTAL.labels(
+                model_name=self._model,
+                error_type=err_type,
+            ).inc()
             # Do not count deliberate user-end 429 limits as backend circuit failures
             if isinstance(exc, HTTPException) and exc.status_code == 429:
                 raise
@@ -236,7 +271,10 @@ class GeminiProvider(AIService):
                     ),
                 )
                 return resp.text
-            return self._execute_under_breaker(lambda: self._retry_call(_call))
+            return self._execute_under_breaker(
+                lambda: self._retry_call(_call),
+                api_method="complete",
+            )
         finally:
             gemini_semaphore.release_sync(req_id)
 
@@ -280,7 +318,10 @@ class GeminiProvider(AIService):
                         resp.text[:200],
                     )
                     return {"raw": resp.text}
-            return self._execute_under_breaker(lambda: self._retry_call(_call))
+            return self._execute_under_breaker(
+                lambda: self._retry_call(_call),
+                api_method="complete_json",
+            )
         finally:
             gemini_semaphore.release_sync(req_id)
 
@@ -315,7 +356,10 @@ class GeminiProvider(AIService):
                     if chunk.text:
                         chunks.append(chunk.text)
                 return chunks
-            result = self._execute_under_breaker(lambda: self._retry_call(_call))
+            result = self._execute_under_breaker(
+                lambda: self._retry_call(_call),
+                api_method="stream",
+            )
             for text in result:
                 yield text
         finally:
