@@ -34,7 +34,7 @@ TABLES = [
 def verify() -> bool:
     """Print row counts for every table. Returns True if all expected tables have data."""
     print("\n" + "=" * 60)
-    print("  AI F1 Telemetry Platform — Database Verification")
+    print("  AI F1 Telemetry Platform - Database Verification")
     print("=" * 60)
 
     all_ok = True
@@ -42,7 +42,7 @@ def verify() -> bool:
     with get_pipeline_db() as db:
         for label, model in TABLES:
             count = db.query(model).count()
-            status = "✓" if count > 0 else "✗ EMPTY"
+            status = "[OK]" if count > 0 else "[EMPTY]"
             print(f"  {label:<20} {count:>8,} rows   {status}")
             # Predictions are optional at this stage
             if count == 0 and label not in ("Predictions",):
@@ -84,9 +84,9 @@ def verify() -> bool:
 
     print("=" * 60)
     if all_ok:
-        print("  ✓ All tables populated. Database looks healthy.")
+        print("  [OK] All tables populated. Database looks healthy.")
     else:
-        print("  ✗ Some tables are empty. Re-run: python -m data_pipeline.load_db")
+        print("  [WARNING] Some tables are empty. Re-run: python -m data_pipeline.load_db")
     print("=" * 60 + "\n")
     return all_ok
 
