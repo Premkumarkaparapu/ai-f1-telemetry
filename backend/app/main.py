@@ -19,14 +19,25 @@ from sqlalchemy.orm import Session
 # Load .env before any config imports
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
+from fastapi import Response  # noqa: E402
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST  # noqa: E402
+import time  # noqa: E402
+
 from backend.app.api.v1 import ai as ai_router  # noqa: E402
 from backend.app.api.v1 import auth as auth_router  # noqa: E402
 from backend.app.api.v1 import drivers, laps, predictions, sessions, telemetry  # noqa: E402
 from backend.app.core.ai_config import AI_PROVIDER  # noqa: E402
 from backend.app.core.config import API_PREFIX, CORS_ORIGINS, RAW_DIR  # noqa: E402
 from backend.app.core.logging import setup_logging  # noqa: E402
+from backend.app.core.metrics import (  # noqa: E402
+    HTTP_REQUESTS_TOTAL,
+    HTTP_REQUEST_DURATION_SECONDS,
+    REDIS_CONNECTION_STATUS,
+    DB_POOL_ACTIVE,
+)
+from backend.app.core.redis import redis_manager  # noqa: E402
 from backend.app.core.request_context import set_request_id  # noqa: E402
-from backend.app.database.db import get_db  # noqa: E402
+from backend.app.database.db import get_db, engine  # noqa: E402
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 setup_logging("backend.log")
@@ -87,6 +98,55 @@ UUID_REGEX = re.compile(
 
 
 @app.middleware("http")
+async def prometheus_metrics_middleware(request: Request, call_next):
+    # Exclude /metrics itself to avoid scraping latency cluttering
+    if request.url.path == "/metrics":
+        return await call_next(request)
+
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    duration = time.perf_counter() - start_time
+
+    # Resolve route path template (low cardinality)
+    route = request.scope.get("route")
+    if route:
+        endpoint = route.path
+    else:
+        path = request.url.path
+        if path.startswith("/api/v1/sessions/"):
+            endpoint = "/api/v1/sessions/{session_id}"
+        elif path.startswith("/api/v1/drivers/"):
+            endpoint = "/api/v1/drivers/{driver_id_or_code}"
+        elif path.startswith("/api/v1/laps/"):
+            endpoint = "/api/v1/laps/{lap_id}"
+        elif path.startswith("/api/v1/telemetry/"):
+            endpoint = "/api/v1/telemetry/{telemetry_id}"
+        else:
+            endpoint = path
+
+    method = request.method
+    status_code = str(response.status_code)
+
+    HTTP_REQUESTS_TOTAL.labels(
+        method=method,
+        endpoint=endpoint,
+        status_code=status_code,
+    ).inc()
+    HTTP_REQUEST_DURATION_SECONDS.labels(
+        method=method,
+        endpoint=endpoint,
+    ).observe(duration)
+
+    # Update status gauges
+    if redis_manager:
+        REDIS_CONNECTION_STATUS.set(1 if redis_manager.client is not None else 0)
+    if engine and hasattr(engine, "pool") and hasattr(engine.pool, "checkedout"):
+        DB_POOL_ACTIVE.set(engine.pool.checkedout())
+
+    return response
+
+
+@app.middleware("http")
 async def add_request_id_header(request: Request, call_next):
     raw_id = request.headers.get("X-Request-ID")
     if raw_id and UUID_REGEX.match(raw_id.lower()):
@@ -108,6 +168,12 @@ app.include_router(telemetry.router,      prefix=API_PREFIX)
 app.include_router(predictions.router,    prefix=API_PREFIX)
 app.include_router(auth_router.router,    prefix=API_PREFIX)
 app.include_router(ai_router.router,      prefix=API_PREFIX)
+
+
+@app.get("/metrics", tags=["Metrics"])
+def get_metrics():
+    """Unauthenticated /metrics endpoint restricted to the internal monitoring network/firewall."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
