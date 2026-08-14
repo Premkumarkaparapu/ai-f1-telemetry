@@ -9,7 +9,7 @@ import re
 import uuid
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import httpx
@@ -170,7 +170,25 @@ app.include_router(auth_router.router,    prefix=API_PREFIX)
 app.include_router(ai_router.router,      prefix=API_PREFIX)
 
 
-@app.get("/metrics", tags=["Metrics"])
+import ipaddress  # noqa: E402
+
+
+def restrict_to_internal_network(request: Request):
+    """Bypasses auth but restricts metrics endpoint access to internal subnets / localhost."""
+    client_ip = request.headers.get("x-forwarded-for") or request.client.host
+    try:
+        ip = ipaddress.ip_address(client_ip)
+        if ip.is_loopback or ip.is_private or ip.is_link_local:
+            return
+    except ValueError:
+        pass
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Access denied: metrics are restricted to internal network"
+    )
+
+
+@app.get("/metrics", tags=["Metrics"], dependencies=[Depends(restrict_to_internal_network)])
 def get_metrics():
     """Unauthenticated /metrics endpoint restricted to the internal monitoring network/firewall."""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
@@ -190,8 +208,14 @@ def health_live():
 
 
 @app.get("/health/ready", tags=["Health"])
-def health_ready(db: Session = Depends(get_db)):
-    """Readiness probe to verify all backing services are connected and ready."""
+async def health_ready(db: Session = Depends(get_db)):
+    """Readiness probe to verify backing services are connected and ready.
+
+    Degraded state mapping:
+    - Postgres database down -> status unhealthy (503)
+    - Storage access down    -> status unhealthy (503)
+    - Redis cache down       -> status degraded  (200 with local fallback)
+    """
     checks = {}
 
     # 1. Database check
@@ -201,7 +225,18 @@ def health_ready(db: Session = Depends(get_db)):
     except Exception as exc:
         checks["database"] = f"failed: {exc}"
 
-    # 2. Storage write/access check
+    # 2. Redis check
+    try:
+        from backend.app.core.redis import redis_manager
+        if redis_manager.client is None:
+            checks["redis"] = "degraded: client is offline"
+        else:
+            await redis_manager.client.ping()
+            checks["redis"] = "ok"
+    except Exception as exc:
+        checks["redis"] = f"degraded: {exc}"
+
+    # 3. Storage write/access check
     try:
         RAW_DIR.mkdir(parents=True, exist_ok=True)
         test_file = RAW_DIR / ".ready_check"
@@ -211,17 +246,28 @@ def health_ready(db: Session = Depends(get_db)):
     except Exception as exc:
         checks["storage"] = f"failed: {exc}"
 
-    # 3. AI provider check (avoids expensive outbound Gemini calls)
+    # 4. AI provider check (avoids expensive outbound Gemini calls)
     try:
         checks["ai_provider"] = "configured" if AI_PROVIDER else "missing"
     except Exception:
         checks["ai_provider"] = "failed"
 
-    # Overall status
-    all_ok = all(v == "ok" or v == "configured" for v in checks.values())
-    status_code = 200 if all_ok else 503
+    # Degraded logic calculation
+    db_ok = checks.get("database") == "ok"
+    storage_ok = checks.get("storage") == "ok"
+    redis_ok = checks.get("redis", "ok") == "ok"
+
+    if not db_ok or not storage_ok:
+        status_str = "unhealthy"
+        status_code = 503
+    elif not redis_ok:
+        status_str = "degraded"
+        status_code = 200
+    else:
+        status_str = "ready"
+        status_code = 200
 
     return JSONResponse(
-        content={"status": "ready" if all_ok else "unready", "checks": checks},
+        content={"status": status_str, "checks": checks},
         status_code=status_code
     )
