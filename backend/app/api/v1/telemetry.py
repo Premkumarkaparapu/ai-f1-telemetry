@@ -1,5 +1,3 @@
-"""API v1 — Telemetry endpoints."""
-
 import pickle
 
 import pandas as pd
@@ -12,8 +10,9 @@ from backend.app.repositories.telemetry_repository import TelemetryRepository
 from backend.app.repositories.driver_repository import DriverRepository
 from backend.app.services.telemetry_service import TelemetryService
 from backend.app.schemas.schemas import TelemetryPointOut, TelemetrySummaryOut, LapCompareOut
+from backend.app.api.v1.security import require_scope
 
-router = APIRouter(prefix="/telemetry", tags=["Telemetry"])
+router = APIRouter(prefix="/telemetry", tags=["Telemetry"], dependencies=[Depends(require_scope("telemetry:read"))])
 
 INTERVAL_MS = 200  # 5 Hz
 

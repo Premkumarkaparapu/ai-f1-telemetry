@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from backend.app.database.db import get_db
 from backend.app.repositories.lap_repository import LapRepository
 from backend.app.schemas.schemas import LapOut, StintOut, PitStopOut
+from backend.app.api.v1.security import require_scope
 
-router = APIRouter(prefix="/laps", tags=["Laps"])
+router = APIRouter(prefix="/laps", tags=["Laps"], dependencies=[Depends(require_scope("telemetry:read"))])
 
 
 def _get_repo(db: Session = Depends(get_db)) -> LapRepository:

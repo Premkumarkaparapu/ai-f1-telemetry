@@ -7,8 +7,9 @@ from backend.app.database.db import get_db
 from backend.app.repositories.driver_repository import DriverRepository
 from backend.app.schemas.schemas import DriverOut
 from backend.app.core.logging import get_logger
+from backend.app.api.v1.security import require_scope
 
-router = APIRouter(prefix="/drivers", tags=["Drivers"])
+router = APIRouter(prefix="/drivers", tags=["Drivers"], dependencies=[Depends(require_scope("telemetry:read"))])
 logger = get_logger(__name__)
 
 

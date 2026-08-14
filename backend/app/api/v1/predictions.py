@@ -72,6 +72,7 @@ def simulate_strategy(
     "/degradation/{compound}",
     response_model=DegradationCurveOut,
     summary="Get predicted tire degradation curve",
+    dependencies=[Depends(require_scope("strategy:run"))]
 )
 def degradation_curve(
     compound: str,
@@ -92,6 +93,7 @@ def degradation_curve(
     "/pit-window/{session_id}/{driver_id}",
     response_model=PitWindowOut,
     summary="Get optimal pit window for a driver",
+    dependencies=[Depends(require_scope("strategy:run"))]
 )
 def pit_window(
     session_id: int,
@@ -113,6 +115,7 @@ def pit_window(
     "/history/{session_id}",
     response_model=list[PredictionOut],
     summary="Get all predictions run for a session",
+    dependencies=[Depends(require_scope("strategy:run"))]
 )
 def prediction_history(
     session_id: int,
