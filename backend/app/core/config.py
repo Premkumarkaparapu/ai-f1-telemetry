@@ -79,3 +79,6 @@ TARGET_SESSIONS: list[tuple[int, str, str]] = [
     (2025, "Austrian Grand Prix", "R"),   # R11 — Red Bull Ring (Sprint)
     (2025, "British Grand Prix", "R"),   # R12 — Silverstone
 ]
+
+# ── Backup Configuration ──────────────────────────────────────────────────────
+BACKUP_RETENTION_DAYS: int = int(os.getenv("BACKUP_RETENTION_DAYS", "7"))

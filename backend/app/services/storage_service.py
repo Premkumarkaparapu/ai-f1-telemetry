@@ -14,11 +14,21 @@ logger = get_logger(__name__)
 
 
 class StorageProvider(ABC):
-    """Abstract interface defining the get_file capability."""
+    """Abstract interface defining get_file, upload_file, and delete_file capabilities."""
 
     @abstractmethod
     def get_file(self, slug: str) -> Path:
         """Download file and return absolute path on filesystem."""
+        pass
+
+    @abstractmethod
+    def upload_file(self, local_path: Path, slug: str) -> None:
+        """Upload file from local filesystem to storage."""
+        pass
+
+    @abstractmethod
+    def delete_file(self, slug: str) -> None:
+        """Delete file from storage."""
         pass
 
 
@@ -31,6 +41,22 @@ class LocalStorageProvider(StorageProvider):
             raise FileNotFoundError(f"Local file {slug} not found in RAW_DIR.")
         logger.info("LocalStorageProvider: file %s found", slug)
         return local_path
+
+    def upload_file(self, local_path: Path, slug: str) -> None:
+        import shutil
+        target = RAW_DIR / slug
+        if local_path.resolve() == target.resolve():
+            logger.info("LocalStorageProvider: source and target are the same path; upload skipped")
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(local_path), str(target))
+        logger.info("LocalStorageProvider: uploaded %s", slug)
+
+    def delete_file(self, slug: str) -> None:
+        target = RAW_DIR / slug
+        if target.exists():
+            target.unlink()
+            logger.info("LocalStorageProvider: deleted %s", slug)
 
 
 class S3StorageProvider(StorageProvider):
@@ -65,6 +91,26 @@ class S3StorageProvider(StorageProvider):
         except ClientError as exc:
             logger.error("Failed to download %s from S3: %s", slug, exc)
             raise FileNotFoundError(f"File {slug} not found in S3 bucket {self.bucket}: {exc}")
+
+    def upload_file(self, local_path: Path, slug: str) -> None:
+        try:
+            import boto3
+            s3 = boto3.client("s3")
+            s3.upload_file(str(local_path), self.bucket, slug)
+            logger.info("S3StorageProvider: uploaded %s to %s", slug, self.bucket)
+        except Exception as exc:
+            logger.error("S3StorageProvider: upload failed for %s: %s", slug, exc)
+            raise
+
+    def delete_file(self, slug: str) -> None:
+        try:
+            import boto3
+            s3 = boto3.client("s3")
+            s3.delete_object(Bucket=self.bucket, Key=slug)
+            logger.info("S3StorageProvider: deleted %s from %s", slug, self.bucket)
+        except Exception as exc:
+            logger.error("S3StorageProvider: delete failed for %s: %s", slug, exc)
+            raise
 
 
 class GCSStorageProvider(StorageProvider):
@@ -104,6 +150,31 @@ class GCSStorageProvider(StorageProvider):
         except Exception as exc:
             logger.error("Failed to download %s from GCS: %s", slug, exc)
             raise FileNotFoundError(f"File {slug} not found in GCS bucket {self.bucket}: {exc}")
+
+    def upload_file(self, local_path: Path, slug: str) -> None:
+        try:
+            from google.cloud import storage
+            client = storage.Client()
+            bucket = client.bucket(self.bucket)
+            blob = bucket.blob(slug)
+            blob.upload_from_filename(str(local_path))
+            logger.info("GCSStorageProvider: uploaded %s to %s", slug, self.bucket)
+        except Exception as exc:
+            logger.error("GCSStorageProvider: upload failed for %s: %s", slug, exc)
+            raise
+
+    def delete_file(self, slug: str) -> None:
+        try:
+            from google.cloud import storage
+            client = storage.Client()
+            bucket = client.bucket(self.bucket)
+            blob = bucket.blob(slug)
+            if blob.exists():
+                blob.delete()
+                logger.info("GCSStorageProvider: deleted %s from %s", slug, self.bucket)
+        except Exception as exc:
+            logger.error("GCSStorageProvider: delete failed for %s: %s", slug, exc)
+            raise
 
 
 # ── Storage Factory ───────────────────────────────────────────────────────────
