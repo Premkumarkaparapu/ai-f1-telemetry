@@ -36,13 +36,16 @@ def test_health_live_endpoint():
 
 
 def test_health_ready_endpoint_success():
-    res = client.get("/health/ready")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "ready"
-    assert data["checks"]["database"] == "ok"
-    assert data["checks"]["storage"] == "ok"
-    assert data["checks"]["ai_provider"] == "configured"
+    from unittest.mock import AsyncMock, patch
+    with patch("backend.app.core.redis.redis_manager.client") as mock_redis_client:
+        mock_redis_client.ping = AsyncMock()
+        res = client.get("/health/ready")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ready"
+        assert data["checks"]["database"] == "ok"
+        assert data["checks"]["storage"] == "ok"
+        assert data["checks"]["ai_provider"] == "configured"
 
 
 # ── Request ID Tracing Middleware Tests ────────────────────────────────────────
