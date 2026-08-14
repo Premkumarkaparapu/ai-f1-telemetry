@@ -45,3 +45,8 @@ audit*.py
 # OS
 .DS_Store
 Thumbs.db
+
+# Playwright E2E
+frontend/test-results/
+frontend/playwright-report/
+

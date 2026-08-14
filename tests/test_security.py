@@ -79,3 +79,144 @@ async def test_require_scope_dependency():
     with pytest.raises(HTTPException) as exc:
         dep_unauth(user)
     assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+# ── Integration Tests ─────────────────────────────────────────────────────────
+import time  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
+from cryptography.hazmat.primitives import serialization  # noqa: E402
+import jwt  # noqa: E402
+from backend.app.main import app  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from backend.app.api.v1.security import jwks_client  # noqa: E402
+
+
+class TestJWTIntegration:
+    """End-to-End integration tests for JWT/JWKS signature checks and RBAC."""
+
+    @classmethod
+    def setup_class(cls):
+        # Generate private key for signing tokens in tests
+        cls.private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048
+        )
+        cls.pem_private = cls.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        # Export public key as JWK to simulate JWKS server response
+        import json
+        public_key = cls.private_key.public_key()
+        jwk_data = jwt.algorithms.RSAAlgorithm.to_jwk(public_key)
+        if isinstance(jwk_data, str):
+            cls.jwk = json.loads(jwk_data)
+        else:
+            cls.jwk = jwk_data
+        cls.jwk["kid"] = "test-kid-1"
+        cls.jwk["alg"] = "RS256"
+        cls.jwk["kty"] = "RSA"
+
+        # Generate a separate invalid key for signature mismatch tests
+        cls.bad_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        cls.pem_bad_private = cls.bad_private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        cls.client = TestClient(app)
+        import httpx
+        app.state.http_client = httpx.AsyncClient()
+
+    def setup_method(self):
+        # Temporarily clear verify_request dependency override so security is enforced
+        self.original_override = app.dependency_overrides.get(verify_request)
+        if verify_request in app.dependency_overrides:
+            del app.dependency_overrides[verify_request]
+
+    def teardown_method(self):
+        # Restore the original override
+        if self.original_override:
+            app.dependency_overrides[verify_request] = self.original_override
+
+    def _create_token(self, permissions, exp_offset=3600, kid="test-kid-1", key_pem=None):
+        payload = {
+            "sub": "user-123",
+            "iss": "https://auth.f1-telemetry.com/",
+            "aud": "https://api.f1-telemetry.com",
+            "exp": int(time.time()) + exp_offset,
+            "permissions": permissions,
+        }
+        headers = {"kid": kid}
+        pk = key_pem or self.pem_private
+        return jwt.encode(payload, pk, algorithm="RS256", headers=headers)
+
+    @pytest.mark.anyio
+    async def test_endpoint_telemetry_scope_happy_path(self):
+        token = self._create_token(["telemetry:read"])
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Mock JWKS client keys cache to return our public key
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/sessions/", headers=headers)
+                assert resp.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_endpoint_insufficient_scope_returns_403(self):
+        token = self._create_token(["strategy:run"])  # missing telemetry:read
+        headers = {"Authorization": f"Bearer {token}"}
+
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/sessions/", headers=headers)
+                assert resp.status_code == 403
+                assert resp.json()["detail"] == "Access forbidden: insufficient permissions"
+
+    @pytest.mark.anyio
+    async def test_expired_token_returns_401(self):
+        token = self._create_token(["telemetry:read"], exp_offset=-60)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/sessions/", headers=headers)
+                assert resp.status_code == 401
+                assert resp.json()["detail"] == "Invalid authentication credentials"
+
+    @pytest.mark.anyio
+    async def test_invalid_signature_returns_401(self):
+        token = self._create_token(["telemetry:read"], key_pem=self.pem_bad_private)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/sessions/", headers=headers)
+                assert resp.status_code == 401
+                assert resp.json()["detail"] == "Invalid authentication credentials"
+
+    @pytest.mark.anyio
+    async def test_unauthenticated_request_returns_401(self):
+        resp = self.client.get("/api/v1/sessions/")
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Invalid authentication credentials"
+
+    @pytest.mark.anyio
+    async def test_m2m_api_key_auth_allowed(self):
+        headers = {"X-API-Key": "dev_secret_key"}
+        resp = self.client.get("/api/v1/sessions/", headers=headers)
+        assert resp.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_m2m_invalid_api_key_returns_401(self):
+        headers = {"X-API-Key": "wrong_secret_key"}
+        resp = self.client.get("/api/v1/sessions/", headers=headers)
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Invalid authentication credentials"
