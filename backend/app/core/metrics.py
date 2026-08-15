@@ -53,3 +53,14 @@ DB_POOL_ACTIVE = Gauge(
     "db_pool_active",
     "Number of active connections in the database pool.",
 )
+
+APP_HEALTH_STATUS = Gauge(
+    "app_health_status",
+    "Status of application health (1 = healthy, 0 = unhealthy).",
+)
+
+APP_READINESS_STATUS = Gauge(
+    "app_readiness_status",
+    "Status of application readiness to serve traffic (1 = ready, 0 = unready).",
+)
+

@@ -190,7 +190,16 @@ def restrict_to_internal_network(request: Request):
 
 @app.get("/metrics", tags=["Metrics"], dependencies=[Depends(restrict_to_internal_network)])
 def get_metrics():
-    """Unauthenticated /metrics endpoint restricted to the internal monitoring network/firewall."""
+    """Unauthenticated /metrics endpoint restricted to the monitoring network."""
+    try:
+        from backend.app.database.db import engine
+        if hasattr(engine, "pool"):
+            from backend.app.core.metrics import DB_POOL_ACTIVE
+            # Set active checked-out connection count if using connection pooling
+            if hasattr(engine.pool, "checkedout"):
+                DB_POOL_ACTIVE.set(engine.pool.checkedout())
+    except Exception:
+        pass
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -198,24 +207,23 @@ def get_metrics():
 
 @app.get("/health", tags=["Health"])
 def health():
+    from backend.app.core.metrics import APP_HEALTH_STATUS
+    APP_HEALTH_STATUS.set(1.0)
     return {"status": "ok", "version": "1.0.0"}
 
 
 @app.get("/health/live", tags=["Health"])
 def health_live():
     """Cheap liveness probe to verify the application process is running."""
+    from backend.app.core.metrics import APP_HEALTH_STATUS
+    APP_HEALTH_STATUS.set(1.0)
     return {"status": "alive"}
 
 
 @app.get("/health/ready", tags=["Health"])
 async def health_ready(db: Session = Depends(get_db)):
-    """Readiness probe to verify backing services are connected and ready.
-
-    Degraded state mapping:
-    - Postgres database down -> status unhealthy (503)
-    - Storage access down    -> status unhealthy (503)
-    - Redis cache down       -> status degraded  (200 with local fallback)
-    """
+    """Readiness probe to verify backing services are connected and ready."""
+    from backend.app.core.metrics import APP_READINESS_STATUS, REDIS_CONNECTION_STATUS
     checks = {}
 
     # 1. Database check
@@ -246,7 +254,7 @@ async def health_ready(db: Session = Depends(get_db)):
     except Exception as exc:
         checks["storage"] = f"failed: {exc}"
 
-    # 4. AI provider check (avoids expensive outbound Gemini calls)
+    # 4. AI provider check
     try:
         checks["ai_provider"] = "configured" if AI_PROVIDER else "missing"
     except Exception:
@@ -260,14 +268,21 @@ async def health_ready(db: Session = Depends(get_db)):
     if not db_ok or not storage_ok:
         status_str = "unhealthy"
         status_code = 503
+        APP_READINESS_STATUS.set(0.0)
     elif not redis_ok:
         status_str = "degraded"
         status_code = 200
+        APP_READINESS_STATUS.set(1.0)
     else:
         status_str = "ready"
         status_code = 200
+        APP_READINESS_STATUS.set(1.0)
+
+    # Set Redis connection status metric gauge
+    REDIS_CONNECTION_STATUS.set(1.0 if redis_ok else 0.0)
 
     return JSONResponse(
         content={"status": status_str, "checks": checks},
         status_code=status_code
     )
+

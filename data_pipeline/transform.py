@@ -213,6 +213,15 @@ def transform_session(year: int, event: str, session_type: str) -> dict[str, pd.
     with open(raw_path, "rb") as f:
         session = pickle.load(f)
 
+    try:
+        # Check if data is loaded
+        _ = session.laps
+    except Exception:
+        logger.info("Session data not loaded in pickle. Loading from cache...")
+        from data_pipeline.ingest import enable_cache
+        enable_cache()
+        session.load(laps=True, telemetry=True, weather=True)
+
     laps_df = transform_laps(session)
     weather_df = transform_weather(session)
 

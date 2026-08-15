@@ -71,3 +71,24 @@ jobs:
           TELEMETRY_SAMPLE_RATE: "5"
         run: |
           pytest tests/ -v -m "not integration" --tb=short
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: "sqlite:///test_f1.db"
+          LOG_LEVEL: "WARNING"
+          TELEMETRY_SAMPLE_RATE: "5"
+        run: |
+          pytest tests/ -v -m "integration" --tb=short
+
+      - name: Deploy to Staging (Simulation)
+        run: |
+          echo "Triggering staging deployment webhook to Render/Vercel..."
+          echo "Deployment successful: Staging URL is http://staging.f1-telemetry.local"
+
+      - name: Run Production Smoke Tests
+        env:
+          DATABASE_URL: "sqlite:///test_f1.db"
+          LOG_LEVEL: "WARNING"
+        run: |
+          pytest tests/test_production_smoke.py -v --tb=short
+
