@@ -20,122 +20,127 @@
     "S\u00e3o Paulo": 1,
     "Zandvoort": 2,
     "Montr\u00e9al": 3,
-    "Budapest": 4,
-    "Barcelona": 5,
-    "Monaco": 6,
-    "Imola": 7,
+    "Monaco": 4,
+    "Monte Carlo": 5,
+    "Imola": 6,
+    "Barcelona": 7,
     "Mexico City": 8,
-    "Monza": 9,
-    "Lusail": 10,
-    "Yas Island": 11,
+    "Budapest": 9,
+    "Monza": 10,
+    "Lusail": 11,
     "Melbourne": 12,
-    "Miami Gardens": 13,
-    "Suzuka": 14,
-    "Jeddah": 15,
-    "Marina Bay": 16,
-    "Silverstone": 17,
-    "Austin": 18,
+    "Yas Island": 13,
+    "Miami Gardens": 14,
+    "Suzuka": 15,
+    "Jeddah": 16,
+    "Las Vegas": 17,
+    "Silverstone": 18,
     "Shanghai": 19,
-    "Sakhir": 20,
-    "Las Vegas": 21,
-    "Baku": 22,
-    "Spa-Francorchamps": 23
+    "Marina Bay": 20,
+    "Sakhir": 21,
+    "Austin": 22,
+    "Baku": 23,
+    "Spa-Francorchamps": 24
   },
   "track_stats": {
     "Austin": {
-      "mean_ms": 99950.0,
-      "enc": 18
-    },
-    "Baku": {
-      "mean_ms": 108226.0,
+      "mean_ms": 102161.0,
       "enc": 22
     },
+    "Baku": {
+      "mean_ms": 108122.0,
+      "enc": 23
+    },
     "Barcelona": {
-      "mean_ms": 83934.0,
-      "enc": 5
-    },
-    "Budapest": {
-      "mean_ms": 83705.0,
-      "enc": 4
-    },
-    "Imola": {
-      "mean_ms": 85378.0,
+      "mean_ms": 84967.0,
       "enc": 7
     },
+    "Budapest": {
+      "mean_ms": 86667.0,
+      "enc": 9
+    },
+    "Imola": {
+      "mean_ms": 83388.0,
+      "enc": 6
+    },
     "Jeddah": {
-      "mean_ms": 97628.0,
-      "enc": 15
-    },
-    "Las Vegas": {
-      "mean_ms": 104281.0,
-      "enc": 21
-    },
-    "Lusail": {
-      "mean_ms": 88979.0,
-      "enc": 10
-    },
-    "Marina Bay": {
-      "mean_ms": 99036.0,
+      "mean_ms": 96313.0,
       "enc": 16
     },
+    "Las Vegas": {
+      "mean_ms": 98114.0,
+      "enc": 17
+    },
+    "Lusail": {
+      "mean_ms": 88667.0,
+      "enc": 11
+    },
+    "Marina Bay": {
+      "mean_ms": 100018.0,
+      "enc": 20
+    },
     "Melbourne": {
-      "mean_ms": 92050.0,
+      "mean_ms": 89525.0,
       "enc": 12
     },
     "Mexico City": {
-      "mean_ms": 85784.0,
+      "mean_ms": 85169.0,
       "enc": 8
     },
     "Miami Gardens": {
-      "mean_ms": 95848.0,
-      "enc": 13
+      "mean_ms": 95683.0,
+      "enc": 14
     },
     "Monaco": {
-      "mean_ms": 83965.0,
-      "enc": 6
+      "mean_ms": 80082.0,
+      "enc": 4
+    },
+    "Monte Carlo": {
+      "mean_ms": 80877.0,
+      "enc": 5
     },
     "Montr\u00e9al": {
-      "mean_ms": 83546.0,
+      "mean_ms": 79263.0,
       "enc": 3
     },
     "Monza": {
-      "mean_ms": 87985.0,
-      "enc": 9
+      "mean_ms": 87287.0,
+      "enc": 10
     },
     "Sakhir": {
-      "mean_ms": 100488.0,
-      "enc": 20
+      "mean_ms": 100642.0,
+      "enc": 21
     },
     "Shanghai": {
-      "mean_ms": 100058.0,
+      "mean_ms": 99971.0,
       "enc": 19
     },
     "Silverstone": {
-      "mean_ms": 99590.0,
-      "enc": 17
+      "mean_ms": 99632.0,
+      "enc": 18
     },
     "Spa-Francorchamps": {
-      "mean_ms": 108445.0,
-      "enc": 23
+      "mean_ms": 113213.0,
+      "enc": 24
     },
     "Spielberg": {
-      "mean_ms": 75529.0,
+      "mean_ms": 74510.0,
       "enc": 0
     },
     "Suzuka": {
-      "mean_ms": 96609.0,
-      "enc": 14
+      "mean_ms": 96241.0,
+      "enc": 15
     },
     "S\u00e3o Paulo": {
-      "mean_ms": 76610.0,
+      "mean_ms": 77590.0,
       "enc": 1
     },
     "Yas Island": {
-      "mean_ms": 91927.0,
-      "enc": 11
+      "mean_ms": 91729.0,
+      "enc": 13
     },
     "Zandvoort": {
-      "mean_ms": 80249.0,
+      "mean_ms": 77975.0,
       "enc": 2
     }
   },

@@ -220,3 +220,44 @@ class TestJWTIntegration:
         resp = self.client.get("/api/v1/sessions/", headers=headers)
         assert resp.status_code == 401
         assert resp.json()["detail"] == "Invalid authentication credentials"
+
+    @pytest.mark.anyio
+    async def test_viewer_predict_returns_403(self):
+        token = self._create_token(["telemetry:read"])  # missing strategy:run
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.post("/api/v1/predict/", json={"session_id": 1, "driver_id": 1, "prediction_type": "lap_time"}, headers=headers)
+                assert resp.status_code == 403
+
+    @pytest.mark.anyio
+    async def test_viewer_ai_ask_returns_403(self):
+        token = self._create_token(["telemetry:read"])  # missing ai:ask
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.post("/api/v1/ai/ask", json={"prompt": "F1 strategy info"}, headers=headers)
+                assert resp.status_code == 403
+
+    @pytest.mark.anyio
+    async def test_analyst_predict_is_not_403(self):
+        token = self._create_token(["telemetry:read", "strategy:run"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.post("/api/v1/predict/", json={"session_id": 1, "driver_id": 1, "prediction_type": "lap_time"}, headers=headers)
+                assert resp.status_code != 403
+
+    @pytest.mark.anyio
+    async def test_analyst_ai_ask_is_not_403(self):
+        token = self._create_token(["telemetry:read", "ai:ask"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.post("/api/v1/ai/ask", json={"prompt": "F1 strategy info"}, headers=headers)
+                assert resp.status_code != 403
+

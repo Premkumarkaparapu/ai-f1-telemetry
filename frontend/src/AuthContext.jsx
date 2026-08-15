@@ -16,6 +16,7 @@ export function useAppAuth() {
       avatar_color:     '#e8002d',
       // Clerk's imageUrl for profile photo
       imageUrl:         user.imageUrl,
+      role:             user.publicMetadata?.role || 'viewer', // default to viewer
     } : null,
     loading: !isLoaded,
     isSignedIn: !!isSignedIn,

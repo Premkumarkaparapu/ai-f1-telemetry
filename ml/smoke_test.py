@@ -51,4 +51,4 @@ print(
 )
 print(f"    Reasoning: {pw['reasoning'][:80]}...")
 
-print("\n✅ All ML functions OK")
+print("\n[OK] All ML functions OK")
