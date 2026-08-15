@@ -110,7 +110,8 @@ class AIRaceEngineer:
 
         # Structured JSON logging for observability
         status = "success"
-        if "temporarily offline" in explanation["answer"] or "having trouble connecting" in explanation["answer"]:
+        ans = explanation["answer"]
+        if "temporarily offline" in ans or "having trouble connecting" in ans:
             status = "fallback"
 
         log_data = {

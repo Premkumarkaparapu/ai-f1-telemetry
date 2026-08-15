@@ -13,6 +13,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks secret scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -23,15 +30,39 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+          pip install pip-audit
 
       - name: Lint with flake8
         run: |
-          flake8 backend/ data_pipeline/ tests/ --max-line-length=100 > flake8_output.txt || true
+          flake8 backend/ data_pipeline/ tests/ ml/ --max-line-length=100 > flake8_output.txt || true
           if [ -s flake8_output.txt ]; then
             jq -R -s '{error: .}' flake8_output.txt > payload.json
             curl -X POST -H "Content-Type: application/json" -d @payload.json https://f1-telemetry-api.onrender.com/api/v1/predict/debug-log || true
           fi
-          flake8 backend/ data_pipeline/ tests/ --max-line-length=100
+          flake8 backend/ data_pipeline/ tests/ ml/ --max-line-length=100
+
+      - name: Run pip-audit for Python CVE scanning
+        run: |
+          pip-audit -r backend/requirements.txt
+
+      - name: Run npm audit for Frontend CVE scanning
+        run: |
+          cd frontend
+          npm audit --audit-level=high
+
+      - name: Build Docker Image
+        run: |
+          docker build -t f1-backend:latest -f backend/Dockerfile backend
+
+      - name: Run Trivy vulnerability scanner on Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'f1-backend:latest'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
 
       - name: Run offline unit tests
         env:
@@ -40,3 +71,24 @@ jobs:
           TELEMETRY_SAMPLE_RATE: "5"
         run: |
           pytest tests/ -v -m "not integration" --tb=short
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: "sqlite:///test_f1.db"
+          LOG_LEVEL: "WARNING"
+          TELEMETRY_SAMPLE_RATE: "5"
+        run: |
+          pytest tests/ -v -m "integration" --tb=short
+
+      - name: Deploy to Staging (Simulation)
+        run: |
+          echo "Triggering staging deployment webhook to Render/Vercel..."
+          echo "Deployment successful: Staging URL is http://staging.f1-telemetry.local"
+
+      - name: Run Production Smoke Tests
+        env:
+          DATABASE_URL: "sqlite:///test_f1.db"
+          LOG_LEVEL: "WARNING"
+        run: |
+          pytest tests/test_production_smoke.py -v --tb=short
+

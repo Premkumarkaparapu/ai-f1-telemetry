@@ -64,7 +64,7 @@ class RateLimiter:
             try:
                 key = f"rate_limit:{ip}"
                 req_id = str(uuid.uuid4())
-                
+
                 # Exec script: KEYS=[key], ARGS=[limit, window, req_id]
                 result = await redis_client.eval(
                     LUA_RATE_LIMITER,
@@ -74,7 +74,7 @@ class RateLimiter:
                     str(self.window_seconds),
                     req_id,
                 )
-                
+
                 allowed, remaining, retry_after = result
                 if not allowed:
                     raise HTTPException(
@@ -104,18 +104,31 @@ class RateLimiter:
             if len(self.history[ip]) >= self.requests_limit:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Too many requests. Limit is {self.requests_limit} per {self.window_seconds}s.",
+                    detail=(
+                        f"Too many requests. Limit is {self.requests_limit} "
+                        f"per {self.window_seconds}s."
+                    ),
                     headers={"Retry-After": str(self.window_seconds // 2)},
                 )
 
             self.history[ip].append(now)
 
 
+import os  # noqa: E402
+
+RATE_LIMIT_LIMIT = int(os.getenv("RATE_LIMIT_LIMIT", "100"))
+RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+RATE_LIMIT_DISABLED = os.getenv("RATE_LIMIT_DISABLED", "false").lower() == "true"
+
 # Global rate limiter instance
-limiter = RateLimiter(requests_limit=10, window_seconds=60)
+limiter = RateLimiter(requests_limit=RATE_LIMIT_LIMIT, window_seconds=RATE_LIMIT_WINDOW)
 
 
 async def rate_limit(request: Request) -> None:
     """FastAPI dependency to enforce rate limiting on endpoints."""
-    client_ip = request.client.host if request.client else "unknown"
+    if RATE_LIMIT_DISABLED:
+        return
+    client_ip = request.headers.get("x-forwarded-for") or (
+        request.client.host if request.client else "unknown"
+    )
     await limiter.check_limit(client_ip)

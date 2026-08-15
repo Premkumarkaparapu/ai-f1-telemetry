@@ -73,6 +73,8 @@ const NAV = [
 // ── Page Content ──────────────────────────────────────────────────────────────
 function PageContent({ page, navigate, onLoginClick }) {
   const { isSignedIn } = useAuth();
+  const { user } = useUser();
+  const role = user?.publicMetadata?.role || 'viewer';
 
   if (page === 'about' && !isSignedIn) {
     return (
@@ -111,6 +113,33 @@ function PageContent({ page, navigate, onLoginClick }) {
             style={{ color: '#70b8ff', cursor: 'pointer', textDecoration: 'underline' }}>
             Register free
           </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Role guard logic for Analyst routes
+  if ((page === 'prediction' || page === 'strategy' || page === 'ai-engineer') && role !== 'analyst') {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', height: '100%', minHeight: 480, gap: 20, padding: 40,
+      }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(232,0,45,0.15), rgba(112,184,255,0.1))',
+          border: '2px solid rgba(232,0,45,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 30, boxShadow: '0 0 40px rgba(232,0,45,0.2)',
+        }}>🔒</div>
+        <div style={{ textAlign: 'center', maxWidth: 360 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
+            Access Restricted
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Lap time predictions, strategy simulations, and AI race engineering access
+            are restricted to <strong>Analyst</strong> accounts.
+          </div>
         </div>
       </div>
     );

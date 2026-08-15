@@ -9,8 +9,9 @@ from backend.app.database.models import Session as SessionModel
 from backend.app.repositories.session_repository import SessionRepository
 from backend.app.services.session_service import SessionService
 from backend.app.schemas.schemas import SessionOut, WeatherOut
+from backend.app.api.v1.security import require_scope
 
-router = APIRouter(prefix="/sessions", tags=["Sessions"])
+router = APIRouter(prefix="/sessions", tags=["Sessions"], dependencies=[Depends(require_scope("telemetry:read"))])
 
 SESSION_TYPE_LABELS = {
     "R": "Race",

@@ -8,9 +8,11 @@ services:
     startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: f1-telemetry-db
-          property: connectionString
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: F1_SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
@@ -19,10 +21,3 @@ services:
         value: WARNING
       - key: PYTHON_VERSION
         value: 3.11.6
-
-databases:
-  - name: f1-telemetry-db
-    databaseName: f1_telemetry
-    user: f1user
-    plan: free
-    region: singapore

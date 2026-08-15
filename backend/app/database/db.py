@@ -9,7 +9,7 @@ from typing import Generator
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-from backend.app.core.config import DATABASE_URL
+from backend.app.core.config import DATABASE_URL, DB_POOL_SIZE, DB_MAX_OVERFLOW
 from backend.app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -26,9 +26,18 @@ engine_args = {
 
 # Apply connection pooling only for PostgreSQL/remote databases
 if not DATABASE_URL.startswith("sqlite"):
-    engine_args["pool_size"] = 5
-    engine_args["max_overflow"] = 5
-    engine_args["pool_recycle"] = 1800
+    if (
+        "pooler.supabase.com" in DATABASE_URL
+        or ":6543" in DATABASE_URL
+        or "pgbouncer=true" in DATABASE_URL.lower()
+    ):
+        from sqlalchemy.pool import NullPool
+        logger.info("Supabase pooler/PgBouncer detected. Using NullPool.")
+        engine_args["poolclass"] = NullPool
+    else:
+        engine_args["pool_size"] = DB_POOL_SIZE
+        engine_args["max_overflow"] = DB_MAX_OVERFLOW
+        engine_args["pool_recycle"] = 1800
 
 engine = create_engine(
     DATABASE_URL,

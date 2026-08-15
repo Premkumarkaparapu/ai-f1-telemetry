@@ -18,6 +18,7 @@ frontend/.env.local
 *.db-shm
 *.db-wal
 *.sqlite-journal
+*.db
 
 # FastF1 raw cache (hundreds of MBs of pickle files — 12GB total, not pushed to git)
 data_pipeline/raw/
@@ -44,3 +45,8 @@ audit*.py
 # OS
 .DS_Store
 Thumbs.db
+
+# Playwright E2E
+frontend/test-results/
+frontend/playwright-report/
+

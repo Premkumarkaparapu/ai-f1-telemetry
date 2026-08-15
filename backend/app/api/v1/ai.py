@@ -55,7 +55,11 @@ class AskResponse(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────
 
 
-@router.post("/ask", response_model=AskResponse, dependencies=[Depends(rate_limit), Depends(require_scope("ai:ask"))])
+@router.post(
+    "/ask",
+    response_model=AskResponse,
+    dependencies=[Depends(rate_limit), Depends(require_scope("ai:ask"))]
+)
 def ask_question(
     request: AskRequest,
     db: Session = Depends(get_db),

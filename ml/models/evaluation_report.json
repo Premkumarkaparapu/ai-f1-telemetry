@@ -1,0 +1,226 @@
+{
+  "dataset_boundaries": {
+    "train": 2023,
+    "validation": 2024,
+    "test": "2025-2026"
+  },
+  "number_of_samples": {
+    "train": 743,
+    "validation": 186,
+    "test": 33863
+  },
+  "features_used": [
+    "tyre_life",
+    "tyre_life_sq",
+    "tyre_life_root",
+    "compound_enc",
+    "session_enc",
+    "track_enc",
+    "lap_number",
+    "stint_number",
+    "is_first_lap",
+    "is_out_lap"
+  ],
+  "train": {
+    "baseline": {
+      "mae": 1620.32,
+      "rmse": 3667.73,
+      "r2": 0.0074
+    },
+    "ridge": {
+      "mae": 1608.91,
+      "rmse": 3555.9,
+      "r2": 0.067
+    },
+    "xgboost": {
+      "mae": 695.7,
+      "rmse": 1443.34,
+      "r2": 0.8463
+    }
+  },
+  "validation": {
+    "baseline": {
+      "mae": 1653.99,
+      "rmse": 3047.92,
+      "r2": -0.0403
+    },
+    "ridge": {
+      "mae": 1560.65,
+      "rmse": 2966.56,
+      "r2": 0.0145
+    },
+    "xgboost": {
+      "mae": 1081.74,
+      "rmse": 2817.48,
+      "r2": 0.1111
+    }
+  },
+  "final_test": {
+    "baseline": {
+      "mae": 9020.18,
+      "rmse": 10783.34,
+      "r2": -0.0051
+    },
+    "ridge": {
+      "mae": 9091.99,
+      "rmse": 10826.67,
+      "r2": -0.0132
+    },
+    "xgboost": {
+      "mae": 9166.63,
+      "rmse": 10963.37,
+      "r2": -0.039
+    }
+  },
+  "compound_level_test_metrics": {
+    "HARD": {
+      "mae": 8961.59,
+      "rmse": 10749.86,
+      "n": 15056
+    },
+    "INTERMEDIATE": {
+      "mae": 9452.94,
+      "rmse": 11606.97,
+      "n": 811
+    },
+    "MEDIUM": {
+      "mae": 9603.53,
+      "rmse": 11449.37,
+      "n": 13656
+    },
+    "SOFT": {
+      "mae": 8449.76,
+      "rmse": 9964.42,
+      "n": 4340
+    }
+  },
+  "track_level_test_metrics": {
+    "Austin": {
+      "mae": 12666.49,
+      "rmse": 12992.23,
+      "n": 936
+    },
+    "Baku": {
+      "mae": 18205.96,
+      "rmse": 18500.62,
+      "n": 828
+    },
+    "Barcelona": {
+      "mae": 5051.96,
+      "rmse": 6260.99,
+      "n": 2183
+    },
+    "Budapest": {
+      "mae": 3757.07,
+      "rmse": 5251.02,
+      "n": 2657
+    },
+    "Imola": {
+      "mae": 6082.52,
+      "rmse": 6715.56,
+      "n": 966
+    },
+    "Jeddah": {
+      "mae": 7136.98,
+      "rmse": 7413.97,
+      "n": 842
+    },
+    "Las Vegas": {
+      "mae": 8834.59,
+      "rmse": 9155.58,
+      "n": 793
+    },
+    "Lusail": {
+      "mae": 2005.78,
+      "rmse": 3463.12,
+      "n": 951
+    },
+    "Marina Bay": {
+      "mae": 10275.27,
+      "rmse": 10593.28,
+      "n": 1151
+    },
+    "Melbourne": {
+      "mae": 3716.46,
+      "rmse": 5263.22,
+      "n": 1413
+    },
+    "Mexico City": {
+      "mae": 4731.93,
+      "rmse": 5209.48,
+      "n": 1156
+    },
+    "Miami Gardens": {
+      "mae": 6435.69,
+      "rmse": 6971.07,
+      "n": 1322
+    },
+    "Monaco": {
+      "mae": 10472.45,
+      "rmse": 11323.88,
+      "n": 1249
+    },
+    "Monte Carlo": {
+      "mae": 9760.61,
+      "rmse": 10461.78,
+      "n": 1202
+    },
+    "Montr\u00e9al": {
+      "mae": 10979.32,
+      "rmse": 11588.41,
+      "n": 2185
+    },
+    "Monza": {
+      "mae": 4637.86,
+      "rmse": 5424.51,
+      "n": 917
+    },
+    "Sakhir": {
+      "mae": 11353.56,
+      "rmse": 11580.03,
+      "n": 1027
+    },
+    "Shanghai": {
+      "mae": 10533.83,
+      "rmse": 10848.35,
+      "n": 1745
+    },
+    "Silverstone": {
+      "mae": 10316.69,
+      "rmse": 11533.44,
+      "n": 1361
+    },
+    "Spa-Francorchamps": {
+      "mae": 23501.49,
+      "rmse": 24214.49,
+      "n": 1493
+    },
+    "Spielberg": {
+      "mae": 15392.4,
+      "rmse": 15829.32,
+      "n": 2285
+    },
+    "Suzuka": {
+      "mae": 7303.97,
+      "rmse": 7699.99,
+      "n": 1984
+    },
+    "S\u00e3o Paulo": {
+      "mae": 12668.04,
+      "rmse": 12989.5,
+      "n": 1100
+    },
+    "Yas Island": {
+      "mae": 3011.42,
+      "rmse": 3910.14,
+      "n": 1097
+    },
+    "Zandvoort": {
+      "mae": 11261.95,
+      "rmse": 11465.74,
+      "n": 1020
+    }
+  },
+  "model_version": "2.7.0",
+  "evaluation_timestamp": "2026-08-15T16:03:05.223174"
+}

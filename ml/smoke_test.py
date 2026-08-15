@@ -1,8 +1,10 @@
 """Smoke test for all ML inference functions."""
-import sys, os
+
+import os
+import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
-from ml.inference import (
+from ml.inference import (  # noqa: E402
     predict_lap_time,
     predict_tire_degradation,
     simulate_race_strategy,
@@ -43,7 +45,10 @@ pw = predict_pit_window(
     current_compound="SOFT",
     current_tyre_life=18,
 )
-print(f"[5] Pit window: earliest={pw['earliest_lap']} optimal={pw['optimal_lap']} latest={pw['latest_lap']}")
+print(
+    f"[5] Pit window: earliest={pw['earliest_lap']} "
+    f"optimal={pw['optimal_lap']} latest={pw['latest_lap']}"
+)
 print(f"    Reasoning: {pw['reasoning'][:80]}...")
 
-print("\n✅ All ML functions OK")
+print("\n[OK] All ML functions OK")
