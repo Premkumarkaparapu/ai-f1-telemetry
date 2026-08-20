@@ -38,13 +38,20 @@ function SourcesBadge({ sources }) {
 
 /* ── Message Bubble ──────────────────────────────────────────────── */
 function MessageBubble({ msg }) {
+  const showTyping = msg.role === 'assistant' && msg.text === '' && msg.isStreaming;
   return (
     <div className={`ai-message ai-message-${msg.role}`}>
       <div className="ai-message-avatar">
         {msg.role === 'user' ? '👤' : '🏎️'}
       </div>
       <div className="ai-message-content">
-        <div className="ai-message-text">{msg.text}</div>
+        {showTyping ? (
+          <div className="ai-typing" style={{ padding: '8px 0', margin: 0 }}>
+            <span></span><span></span><span></span>
+          </div>
+        ) : (
+          <div className="ai-message-text">{msg.text}</div>
+        )}
         {msg.tools_used && msg.tools_used.length > 0 && (
           <div className="ai-tools-used">
             {msg.tools_used.map((t, i) => (
@@ -131,33 +138,77 @@ export default function AIRaceEngineer() {
     setError(null);
     setLoading(true);
 
-    // Add user message
-    setMessages(prev => [...prev, { role: 'user', text: q }]);
+    // Add user message and placeholder assistant message
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', text: q },
+      { role: 'assistant', text: '', isStreaming: true, tools_used: [], sources: [] }
+    ]);
 
     try {
-      const result = await api.aiAsk({
+      const stream = api.aiStream({
         question: q,
         session_id: parseInt(sessionId),
         driver_code: driverCode || null,
       });
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        text: result.answer,
-        evidence: result.evidence,
-        tools_used: result.tools_used,
-        intent: result.intent,
-        sources: result.sources,
-        latency_ms: result.latency_ms,
-      }]);
+      let textAccumulator = '';
+      let metadata = {};
+      let doneData = {};
+
+      for await (const chunk of stream) {
+        if (chunk.type === 'metadata') {
+          metadata = {
+            intent: chunk.intent,
+            tools_used: chunk.tools_used
+          };
+        } else if (chunk.type === 'token') {
+          textAccumulator += chunk.content;
+        } else if (chunk.type === 'done') {
+          doneData = {
+            evidence: chunk.evidence,
+            sources: chunk.sources,
+            latency_ms: chunk.latency_ms
+          };
+        }
+
+        // Update the placeholder message in real-time
+        setMessages(prev => {
+          const list = [...prev];
+          if (list.length > 0) {
+            const last = { ...list[list.length - 1] };
+            if (last.role === 'assistant') {
+              last.text = textAccumulator;
+              last.intent = metadata.intent || last.intent;
+              last.tools_used = metadata.tools_used || last.tools_used;
+              if (chunk.type === 'done') {
+                last.evidence = doneData.evidence;
+                last.sources = doneData.sources;
+                last.latency_ms = doneData.latency_ms;
+                last.isStreaming = false;
+              }
+              list[list.length - 1] = last;
+            }
+          }
+          return list;
+        });
+      }
     } catch (err) {
       const errMsg = err.message.includes('422')
         ? 'Please ask a more specific F1 question (e.g. "How was VER\'s pace?")'
         : `Connection error — is the backend running? (${err.message})`;
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        text: errMsg,
-      }]);
+      setMessages(prev => {
+        const list = [...prev];
+        if (list.length > 0) {
+          const last = { ...list[list.length - 1] };
+          if (last.role === 'assistant') {
+            last.text = errMsg;
+            last.isStreaming = false;
+            list[list.length - 1] = last;
+          }
+        }
+        return list;
+      });
     } finally {
       setLoading(false);
       // Re-focus input after response
@@ -262,16 +313,7 @@ export default function AIRaceEngineer() {
             {messages.map((msg, i) => (
               <MessageBubble key={i} msg={msg} />
             ))}
-            {loading && (
-              <div className="ai-message ai-message-assistant">
-                <div className="ai-message-avatar">🏎️</div>
-                <div className="ai-message-content">
-                  <div className="ai-typing">
-                    <span></span><span></span><span></span>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* The typing indicator is now embedded directly inside the message bubble during active streaming */}
             <div ref={chatEndRef} />
           </div>
         )}
