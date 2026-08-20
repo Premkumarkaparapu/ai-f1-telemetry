@@ -7,11 +7,15 @@ services:
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: SUPABASE_DATABASE_URL
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
         sync: false
       - key: F1_SECRET_KEY
         generateValue: true
