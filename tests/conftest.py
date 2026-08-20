@@ -11,6 +11,8 @@ os.environ["LOG_LEVEL"] = "WARNING"
 os.environ["TELEMETRY_SAMPLE_RATE"] = "5"
 os.environ["FUEL_EFFECT_SEC_PER_LAP"] = "0.055"
 os.environ["AI_PROVIDER"] = "mock"
+os.environ["GEMINI_API_KEY"] = "mock_key"
+
 
 
 # ── Dependency Overrides for Tests ───────────────────────────────────────────

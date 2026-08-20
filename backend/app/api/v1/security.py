@@ -98,7 +98,12 @@ class AuthenticatedUser:
         self.scopes = scopes
 
     def has_scope(self, required_scope: str) -> bool:
-        """Verify the user possesses the required RBAC privilege."""
+        """Verify the user possesses the required RBAC privilege.
+        
+        system:admin implicitly grants system:monitor access.
+        """
+        if "system:admin" in self.scopes:
+            return True
         return required_scope in self.scopes
 
 
@@ -111,13 +116,28 @@ async def verify_request(
     # 1. API Key Auth Path (Machine-to-Machine)
     if x_api_key:
         expected_raw = API_KEY or "dev_secret_key"
-        # Validate hash digests to protect against timing attacks and logs exposure
+        expected_monitoring = os.getenv("MONITORING_API_KEY", "dev_monitoring_key")
+        expected_admin = os.getenv("ADMIN_API_KEY", "dev_admin_key")
+
+        # Standard M2M key
         if hash_api_key(x_api_key) == hash_api_key(expected_raw):
-            # M2M keys are granted full scopes automatically
             return AuthenticatedUser(
                 sub="machine_client",
                 scopes=["telemetry:read", "strategy:run", "ai:ask"]
             )
+        # Monitoring M2M key
+        elif hash_api_key(x_api_key) == hash_api_key(expected_monitoring):
+            return AuthenticatedUser(
+                sub="monitoring_client",
+                scopes=["system:monitor"]
+            )
+        # Admin M2M key
+        elif hash_api_key(x_api_key) == hash_api_key(expected_admin):
+            return AuthenticatedUser(
+                sub="admin_client",
+                scopes=["system:admin"]
+            )
+
         logger.warning("Authentication failure: Invalid X-API-Key token provided.")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

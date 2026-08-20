@@ -261,3 +261,135 @@ class TestJWTIntegration:
                 resp = self.client.post("/api/v1/ai/ask", json={"prompt": "F1 strategy info"}, headers=headers)
                 assert resp.status_code != 403
 
+    @pytest.mark.anyio
+    async def test_viewer_monitoring_returns_403(self):
+        token = self._create_token(["telemetry:read"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/monitoring/status", headers=headers)
+                assert resp.status_code == 403
+
+    @pytest.mark.anyio
+    async def test_analyst_monitoring_returns_403(self):
+        token = self._create_token(["telemetry:read", "strategy:run", "ai:ask"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/monitoring/status", headers=headers)
+                assert resp.status_code == 403
+
+    @pytest.mark.anyio
+    async def test_l2_monitoring_status_returns_200(self):
+        token = self._create_token(["telemetry:read", "strategy:run", "ai:ask", "system:monitor"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/monitoring/status", headers=headers)
+                assert resp.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_l2_monitoring_health_returns_200(self):
+        token = self._create_token(["telemetry:read", "strategy:run", "ai:ask", "system:monitor"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/monitoring/health", headers=headers)
+                assert resp.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_l2_monitoring_diagnostics_returns_200(self):
+        token = self._create_token(["telemetry:read", "strategy:run", "ai:ask", "system:monitor"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/monitoring/diagnostics", headers=headers)
+                assert resp.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_unauthenticated_monitoring_returns_401(self):
+        resp = self.client.get("/api/v1/monitoring/status")
+        assert resp.status_code == 401
+
+    @pytest.mark.anyio
+    async def test_l3_monitoring_status_returns_200(self):
+        # system:admin implicitly allows system:monitor scope (Scope Hierarchy check)
+        token = self._create_token(["system:admin"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/monitoring/status", headers=headers)
+                assert resp.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_l2_admin_logs_returns_403(self):
+        # L2 negative test: system:monitor should NOT be allowed to call system:admin route
+        token = self._create_token(["system:monitor"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.get("/api/v1/admin/logs", headers=headers)
+                assert resp.status_code == 403
+
+    @pytest.mark.anyio
+    async def test_l2_admin_sync_returns_403(self):
+        # L2 negative test
+        token = self._create_token(["system:monitor"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.post("/api/v1/admin/db/sync-sequence", headers=headers)
+                assert resp.status_code == 403
+
+    @pytest.mark.anyio
+    async def test_l2_admin_backup_returns_403(self):
+        # L2 negative test
+        token = self._create_token(["system:monitor"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp = self.client.post("/api/v1/admin/backup/trigger", headers=headers)
+                assert resp.status_code == 403
+
+    @pytest.mark.anyio
+    async def test_l3_admin_endpoints_returns_200(self):
+        # L3 positive tests
+        token = self._create_token(["system:admin"])
+        headers = {"Authorization": f"Bearer {token}"}
+        mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
+        with patch.object(jwks_client, "_keys", mock_keys):
+            with patch.object(jwks_client, "_last_fetched", time.time()):
+                resp1 = self.client.get("/api/v1/admin/logs", headers=headers)
+                assert resp1.status_code == 200
+                resp2 = self.client.post("/api/v1/admin/db/sync-sequence", headers=headers)
+                assert resp2.status_code == 200
+                resp3 = self.client.post("/api/v1/admin/backup/trigger", headers=headers)
+                assert resp3.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_m2m_monitoring_key_allows_l2_status(self):
+        # MONITORING_API_KEY M2M check
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"MONITORING_API_KEY": "custom_monitoring_secret"}):
+            headers = {"X-API-Key": "custom_monitoring_secret"}
+            resp = self.client.get("/api/v1/monitoring/status", headers=headers)
+            assert resp.status_code == 200
+
+    @pytest.mark.anyio
+    async def test_m2m_standard_key_rejects_l2_status(self):
+        # Standard API Key M2M check (should return 403, lacks system:monitor)
+        headers = {"X-API-Key": "dev_secret_key"}
+        resp = self.client.get("/api/v1/monitoring/status", headers=headers)
+        assert resp.status_code == 403
+
+

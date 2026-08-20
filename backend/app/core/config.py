@@ -138,3 +138,7 @@ TARGET_SESSIONS: list[tuple[int, str, str]] = [
 
 # ── Backup Configuration ──────────────────────────────────────────────────────
 BACKUP_RETENTION_DAYS: int = int(os.getenv("BACKUP_RETENTION_DAYS", "7"))
+
+import time
+APP_START_TIME: float = time.time()
+

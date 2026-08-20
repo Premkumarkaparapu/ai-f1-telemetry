@@ -64,3 +64,14 @@ APP_READINESS_STATUS = Gauge(
     "Status of application readiness to serve traffic (1 = ready, 0 = unready).",
 )
 
+RATE_LIMIT_REJECTIONS_TOTAL = Counter(
+    "rate_limit_rejections_total",
+    "Total number of rate limit rejections (HTTP 429).",
+)
+
+CIRCUIT_BREAKER_STATE = Gauge(
+    "circuit_breaker_state",
+    "State of the circuit breaker (1 = CLOSED, 0.5 = HALF-OPEN, 0 = OPEN).",
+)
+
+

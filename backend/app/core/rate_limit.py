@@ -12,6 +12,7 @@ from fastapi import HTTPException, Request, status
 
 from backend.app.core.logging import get_logger
 from backend.app.core.redis import get_redis_client
+from backend.app.core.metrics import RATE_LIMIT_REJECTIONS_TOTAL
 
 logger = get_logger(__name__)
 
@@ -77,6 +78,7 @@ class RateLimiter:
 
                 allowed, remaining, retry_after = result
                 if not allowed:
+                    RATE_LIMIT_REJECTIONS_TOTAL.inc()
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail="Too many requests. Please try again later.",
@@ -102,6 +104,7 @@ class RateLimiter:
             ]
 
             if len(self.history[ip]) >= self.requests_limit:
+                RATE_LIMIT_REJECTIONS_TOTAL.inc()
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=(

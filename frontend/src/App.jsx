@@ -16,6 +16,8 @@ import LiveReplay from './pages/LiveReplay';
 import StrategySimulator from './pages/StrategySimulator';
 import About from './pages/About';
 import AIRaceEngineer from './pages/AIRaceEngineer';
+import SystemMonitoring from './pages/SystemMonitoring';
+
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = ({ d, size = 13 }) => (
@@ -45,7 +47,9 @@ const ICONS = {
   docs:        'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
   github:      'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22',
   ai:          'M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7 7 0 0 1 14 23h-4a7 7 0 0 1-6.93-4H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z M9 17a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M15 17a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+  monitoring:  'M12 2v4 M12 18v4 M4.93 4.93l2.83 2.83 M16.24 16.24l2.83 2.83 M2 12h4 M18 12h4 M4.93 19.07l2.83-2.83 M16.24 7.76l2.83-2.83 M12 12m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0',
 };
+
 
 const NAV = [
   { section: 'DATA' },
@@ -68,13 +72,19 @@ const NAV = [
   { id: 'ai-engineer',  label: 'AI Race Engineer',    icon: 'ai' },
   { section: 'ABOUT' },
   { id: 'about', label: 'Platform Internals', icon: 'about', private: true },
+  { id: 'monitoring', label: 'System Monitoring', icon: 'monitoring', permission: 'system:monitor', private: true },
 ];
+
 
 // ── Page Content ──────────────────────────────────────────────────────────────
 function PageContent({ page, navigate, onLoginClick }) {
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const role = user?.publicMetadata?.role || 'viewer';
+  const permissions = user?.publicMetadata?.permissions || [];
+
+  const hasMonitorPermission = permissions.includes('system:monitor') || permissions.includes('system:admin') || role === 'L2' || role === 'L3';
+  const hasAnalystPermission = permissions.includes('strategy:run') || permissions.includes('ai:ask') || role === 'analyst' || role === 'L2' || role === 'L3';
 
   if (page === 'about' && !isSignedIn) {
     return (
@@ -119,7 +129,7 @@ function PageContent({ page, navigate, onLoginClick }) {
   }
 
   // Role guard logic for Analyst routes
-  if ((page === 'prediction' || page === 'strategy' || page === 'ai-engineer') && role !== 'analyst') {
+  if ((page === 'prediction' || page === 'strategy' || page === 'ai-engineer') && !hasAnalystPermission) {
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -145,6 +155,32 @@ function PageContent({ page, navigate, onLoginClick }) {
     );
   }
 
+  // Permission guard logic for L2/Monitoring routes
+  if (page === 'monitoring' && !hasMonitorPermission) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', height: '100%', minHeight: 480, gap: 20, padding: 40,
+      }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(232,0,45,0.15), rgba(112,184,255,0.1))',
+          border: '2px solid rgba(232,0,45,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 30, boxShadow: '0 0 40px rgba(232,0,45,0.2)',
+        }}>🔒</div>
+        <div style={{ textAlign: 'center', maxWidth: 360 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
+            Access Restricted
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            System monitoring and diagnostic analytics are restricted to <strong>Advanced L2 Engineers</strong>.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   switch (page) {
     case 'dashboard':    return <Dashboard />;
     case 'sessions':     return <Sessions onNavigate={navigate} />;
@@ -161,6 +197,7 @@ function PageContent({ page, navigate, onLoginClick }) {
     case 'strategy':     return <StrategySimulator />;
     case 'about':        return <About />;
     case 'ai-engineer':  return <AIRaceEngineer />;
+    case 'monitoring':   return <SystemMonitoring />;
     default:             return <Dashboard />;
   }
 }
@@ -302,21 +339,29 @@ export default function App() {
         )}
 
         <nav className="sidebar-nav">
-          {NAV.map((item, i) => {
-            if (item.private && !isSignedIn) return null;
-            return item.section
-              ? <div key={i} className="sidebar-section-label">{item.section}</div>
-              : (
-                <button key={item.id}
-                  className={`nav-item${page === item.id ? ' active' : ''}`}
-                  onClick={() => setPage(item.id)}>
-                  <Icon d={ICONS[item.icon]} size={13} />
-                  {item.label}
-                  {item.private && <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.6 }}>🔒</span>}
-                </button>
-              );
-          })}
+          {(() => {
+            const permissions = user?.publicMetadata?.permissions || [];
+            const role = user?.publicMetadata?.role || 'viewer';
+            const hasMonitorPermission = permissions.includes('system:monitor') || permissions.includes('system:admin') || role === 'L2' || role === 'L3';
+
+            return NAV.map((item, i) => {
+              if (item.private && !isSignedIn) return null;
+              if (item.permission === 'system:monitor' && !hasMonitorPermission) return null;
+              return item.section
+                ? <div key={i} className="sidebar-section-label">{item.section}</div>
+                : (
+                  <button key={item.id}
+                    className={`nav-item${page === item.id ? ' active' : ''}`}
+                    onClick={() => setPage(item.id)}>
+                    <Icon d={ICONS[item.icon]} size={13} />
+                    {item.label}
+                    {item.private && <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.6 }}>🔒</span>}
+                  </button>
+                );
+            });
+          })()}
         </nav>
+
 
         <div className="sidebar-footer">
           <div className="sidebar-version">v1.0.0</div>

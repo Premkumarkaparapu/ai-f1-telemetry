@@ -58,10 +58,12 @@ def test_retention_pruning():
     manifest_slug = "backups/manifest.json"
     manifest_local_path = BACKUP_DIR / "manifest.json"
 
+    from datetime import datetime, timezone
     import json
+    now_iso = datetime.now(timezone.utc).isoformat()
     mock_manifest = [
         {"slug": slug_old, "created_at": "2020-01-01T00:00:00+00:00"},
-        {"slug": slug_new, "created_at": "2026-08-11T00:00:00+00:00"},
+        {"slug": slug_new, "created_at": now_iso},
     ]
 
     with open(manifest_local_path, "w") as f:

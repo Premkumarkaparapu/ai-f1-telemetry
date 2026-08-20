@@ -9,6 +9,7 @@ import time
 
 from backend.app.core.logging import get_logger
 from backend.app.core.redis import get_redis_client
+from backend.app.core.metrics import CIRCUIT_BREAKER_STATE
 
 logger = get_logger(__name__)
 
@@ -41,22 +42,26 @@ class CircuitBreaker:
                 self._state = "HALF-OPEN"
                 self._last_state_change = current_time
                 logger.info("Local circuit transitioned to HALF-OPEN.")
-            return self._state
+            state = self._state
+        else:
+            try:
+                state = await redis_client.get("gemini_circuit_state") or "CLOSED"
+                last_change = float(await redis_client.get("gemini_circuit_last_change") or 0)
 
-        try:
-            state = await redis_client.get("gemini_circuit_state") or "CLOSED"
-            last_change = float(await redis_client.get("gemini_circuit_last_change") or 0)
+                if state == "OPEN" and (current_time - last_change) > self.cooldown_seconds:
+                    state = "HALF-OPEN"
+                    await redis_client.set("gemini_circuit_state", "HALF-OPEN")
+                    await redis_client.set("gemini_circuit_last_change", str(current_time))
+                    logger.info("Redis circuit transitioned globally to HALF-OPEN.")
+            except Exception as exc:
+                logger.warning("Failed to query Redis circuit state: %s", exc)
+                state = self._state
 
-            if state == "OPEN" and (current_time - last_change) > self.cooldown_seconds:
-                # Transition to HALF-OPEN in Redis
-                state = "HALF-OPEN"
-                await redis_client.set("gemini_circuit_state", "HALF-OPEN")
-                await redis_client.set("gemini_circuit_last_change", str(current_time))
-                logger.info("Redis circuit transitioned globally to HALF-OPEN.")
-            return state
-        except Exception as exc:
-            logger.warning("Failed to query Redis circuit state: %s", exc)
-            return self._state
+        # Update gauge metric in-process
+        state_map = {"CLOSED": 1.0, "HALF-OPEN": 0.5, "OPEN": 0.0}
+        CIRCUIT_BREAKER_STATE.set(state_map.get(state, 1.0))
+        return state
+
 
     async def acquire_half_open_lock(self) -> bool:
         """Acquire lock to allow a single probe request in HALF-OPEN state."""

@@ -25,7 +25,7 @@ import time  # noqa: E402
 
 from backend.app.api.v1 import ai as ai_router  # noqa: E402
 from backend.app.api.v1 import auth as auth_router  # noqa: E402
-from backend.app.api.v1 import drivers, laps, predictions, sessions, telemetry  # noqa: E402
+from backend.app.api.v1 import drivers, laps, predictions, sessions, telemetry, monitoring, admin  # noqa: E402
 from backend.app.core.ai_config import AI_PROVIDER  # noqa: E402
 from backend.app.core.config import API_PREFIX, CORS_ORIGINS, RAW_DIR  # noqa: E402
 from backend.app.core.logging import setup_logging  # noqa: E402
@@ -168,6 +168,8 @@ app.include_router(telemetry.router,      prefix=API_PREFIX)
 app.include_router(predictions.router,    prefix=API_PREFIX)
 app.include_router(auth_router.router,    prefix=API_PREFIX)
 app.include_router(ai_router.router,      prefix=API_PREFIX)
+app.include_router(monitoring.router,     prefix=API_PREFIX)
+app.include_router(admin.router,          prefix=API_PREFIX)
 
 
 import ipaddress  # noqa: E402
