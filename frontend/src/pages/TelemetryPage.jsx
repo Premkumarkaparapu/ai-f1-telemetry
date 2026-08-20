@@ -195,26 +195,6 @@ export default function TelemetryPage() {
       </div>
 
       <div className="content-area" style={{ padding: 0 }}>
-        {/* Warning Banner for non-2023 session */}
-        {selSession && Number(selSession.year) !== 2023 && (
-          <div style={{
-            background: 'rgba(232, 0, 45, 0.04)',
-            border: '1px solid rgba(232, 0, 45, 0.2)',
-            borderRadius: '8px',
-            padding: '10px 16px',
-            marginBottom: '10px',
-            fontSize: '11px',
-            color: '#f87171',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{ fontSize: '13px' }}>⚠️</span>
-            <span>
-              <strong>Note:</strong> Telemetry sensor traces (speed, throttle, brake) are only loaded for the <strong>2023 Season</strong> to stay within hosted storage limits. Other seasons contain event metadata but no raw telemetry files.
-            </span>
-          </div>
-        )}
 
         {/* KPI row */}
         {telStats && (
