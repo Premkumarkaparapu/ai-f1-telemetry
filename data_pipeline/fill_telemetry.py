@@ -77,9 +77,24 @@ def fill_telemetry():
 
             # Load pickle lazily (once per session)
             if ff1 is None:
-                print(f"  Loading pickle: {slug} ({pkl_path.stat().st_size // 1024 // 1024} MB)...")
+                print(f"  Loading pickle: {slug}...")
                 with open(pkl_path, "rb") as f:
                     ff1 = pickle.load(f)
+                
+                # Check if telemetry is loaded, if not, load it via FastF1
+                try:
+                    ff1.laps.iloc[0].get_telemetry()
+                except Exception:
+                    print("  Telemetry not loaded in pickle. Fetching from FastF1 API...")
+                    import fastf1
+                    from backend.app.core.config import CACHE_DIR
+                    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                    fastf1.Cache.enable_cache(str(CACHE_DIR))
+                    try:
+                        ff1 = fastf1.get_session(sess.year, sess.event_name, 'R')
+                        ff1.load(laps=True, telemetry=True, weather=True)
+                    except Exception as load_err:
+                        print(f"  Failed to load session telemetry: {load_err}")
 
             # Get telemetry
             try:
@@ -106,7 +121,19 @@ def fill_telemetry():
                     target_lap = valid.loc[[valid["LapTime"].idxmin()]]
 
                 lap_row = target_lap.iloc[0]
-                tel = lap_row.get_telemetry()
+                try:
+                    tel = lap_row.get_telemetry()
+                except Exception as tel_err:
+                    print(f"    {drv.code}: merged telemetry failed ({tel_err}). Falling back to car_data...")
+                    try:
+                        tel = lap_row.get_car_data()
+                        tel["X"] = None
+                        tel["Y"] = None
+                        tel["Z"] = None
+                    except Exception as fallback_err:
+                        print(f"    {drv.code}: car_data fallback failed ({fallback_err})")
+                        continue
+
                 if tel is None or tel.empty:
                     print(f"  {drv.code}: empty telemetry")
                     continue
