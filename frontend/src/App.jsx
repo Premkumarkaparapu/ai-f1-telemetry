@@ -84,22 +84,12 @@ function PageContent({ page, navigate, onLoginClick }) {
   const role = String(rawRole).toLowerCase().trim();
   const permissions = user?.publicMetadata?.permissions || [];
 
-  const hasMonitorPermission = permissions.includes('system:monitor') || 
-                               permissions.includes('system:admin') || 
-                               role.includes('l2') || 
-                               role.includes('l3') || 
-                               role.includes('admin') || 
-                               role.includes('monitor');
-
-  const hasAnalystPermission = permissions.includes('strategy:run') || 
-                               permissions.includes('ai:ask') || 
-                               role.includes('analyst') || 
-                               role.includes('l2') || 
-                               role.includes('l3') || 
-                               role.includes('admin') || 
-                               role.includes('monitor');
+  // FOR INTERVIEWER CONVENIENCE: Grant full access to all screens for any logged-in user!
+  const hasMonitorPermission = isSignedIn;
+  const hasAnalystPermission = isSignedIn;
 
   console.log("F1 Auth Scope resolution:", { username: user?.username, rawRole, parsedRole: role, permissions, hasMonitorPermission, hasAnalystPermission });
+
 
 
   if (page === 'about' && !isSignedIn) {
@@ -359,12 +349,9 @@ export default function App() {
             const permissions = user?.publicMetadata?.permissions || [];
             const rawRole = user?.publicMetadata?.role || 'viewer';
             const role = String(rawRole).toLowerCase().trim();
-            const hasMonitorPermission = permissions.includes('system:monitor') || 
-                                         permissions.includes('system:admin') || 
-                                         role.includes('l2') || 
-                                         role.includes('l3') || 
-                                         role.includes('admin') || 
-                                         role.includes('monitor');
+            
+            // FOR INTERVIEWER CONVENIENCE: Grant full access to all screens for any logged-in user!
+            const hasMonitorPermission = isSignedIn;
 
             return NAV.map((item, i) => {
               if (item.private && !isSignedIn) return null;
