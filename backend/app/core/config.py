@@ -14,9 +14,12 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 
 # ── Database ──────────────────────────────────────────────────────────────────
 DATABASE_URL: str = os.getenv(
-    "DATABASE_URL",
-    "postgresql://f1user:RuLlNmXxzLY8LMNTzA3I6iZ5QU3NBXqU"
-    "@dpg-d9bngujbc2fs73eg2oj0-a.singapore-postgres.render.com/f1_telemetry_xhv3"
+    "SUPABASE_DATABASE_URL",
+    os.getenv(
+        "DATABASE_URL",
+        "postgresql://f1user:RuLlNmXxzLY8LMNTzA3I6iZ5QU3NBXqU"
+        "@dpg-d9bngujbc2fs73eg2oj0-a.singapore-postgres.render.com/f1_telemetry_xhv3"
+    )
 )
 DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "20"))
 DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
