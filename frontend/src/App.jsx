@@ -80,11 +80,27 @@ const NAV = [
 function PageContent({ page, navigate, onLoginClick }) {
   const { isSignedIn } = useAuth();
   const { user } = useUser();
-  const role = user?.publicMetadata?.role || 'viewer';
+  const rawRole = user?.publicMetadata?.role || 'viewer';
+  const role = String(rawRole).toLowerCase().trim();
   const permissions = user?.publicMetadata?.permissions || [];
 
-  const hasMonitorPermission = permissions.includes('system:monitor') || permissions.includes('system:admin') || role === 'L2' || role === 'L3';
-  const hasAnalystPermission = permissions.includes('strategy:run') || permissions.includes('ai:ask') || role === 'analyst' || role === 'L2' || role === 'L3';
+  const hasMonitorPermission = permissions.includes('system:monitor') || 
+                               permissions.includes('system:admin') || 
+                               role.includes('l2') || 
+                               role.includes('l3') || 
+                               role.includes('admin') || 
+                               role.includes('monitor');
+
+  const hasAnalystPermission = permissions.includes('strategy:run') || 
+                               permissions.includes('ai:ask') || 
+                               role.includes('analyst') || 
+                               role.includes('l2') || 
+                               role.includes('l3') || 
+                               role.includes('admin') || 
+                               role.includes('monitor');
+
+  console.log("F1 Auth Scope resolution:", { username: user?.username, rawRole, parsedRole: role, permissions, hasMonitorPermission, hasAnalystPermission });
+
 
   if (page === 'about' && !isSignedIn) {
     return (
@@ -331,8 +347,8 @@ export default function App() {
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {user.fullName || displayName}
               </div>
-              <div style={{ fontSize: 9, color: '#e8002d', fontWeight: 600, marginTop: 1 }}>
-                Member
+              <div style={{ fontSize: 9, color: '#e8002d', fontWeight: 600, marginTop: 1, textTransform: 'capitalize' }}>
+                {user?.publicMetadata?.role || 'Viewer'}
               </div>
             </div>
           </div>
@@ -341,8 +357,14 @@ export default function App() {
         <nav className="sidebar-nav">
           {(() => {
             const permissions = user?.publicMetadata?.permissions || [];
-            const role = user?.publicMetadata?.role || 'viewer';
-            const hasMonitorPermission = permissions.includes('system:monitor') || permissions.includes('system:admin') || role === 'L2' || role === 'L3';
+            const rawRole = user?.publicMetadata?.role || 'viewer';
+            const role = String(rawRole).toLowerCase().trim();
+            const hasMonitorPermission = permissions.includes('system:monitor') || 
+                                         permissions.includes('system:admin') || 
+                                         role.includes('l2') || 
+                                         role.includes('l3') || 
+                                         role.includes('admin') || 
+                                         role.includes('monitor');
 
             return NAV.map((item, i) => {
               if (item.private && !isSignedIn) return null;
