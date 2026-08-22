@@ -152,7 +152,7 @@ class GeminiProvider(AIService):
             from google.genai import types
             self._client = genai.Client(
                 api_key=GEMINI_API_KEY,
-                http_options=types.HttpOptions(timeout=10_000)
+                http_options=types.HttpOptions(timeout=60_000)
             )
             self._model = AI_MODEL_NAME
             self._types = types
