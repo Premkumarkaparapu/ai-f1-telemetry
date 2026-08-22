@@ -17,7 +17,7 @@ AI_PROVIDER: str = os.getenv("AI_PROVIDER", "mock")
 # ── Gemini ────────────────────────────────────────────────────────────
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 AI_MODEL_NAME: str = os.getenv(
-    "AI_MODEL_NAME", "gemini-1.5-flash"
+    "AI_MODEL_NAME", "gemini-3.6-flash"
 )
 AI_TEMPERATURE: float = float(os.getenv("AI_TEMPERATURE", "0.3"))
 AI_MAX_TOKENS: int = int(os.getenv("AI_MAX_TOKENS", "2048"))
