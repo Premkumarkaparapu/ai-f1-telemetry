@@ -52,25 +52,11 @@ function MessageBubble({ msg }) {
         ) : (
           <div className="ai-message-text">{msg.text}</div>
         )}
-        {msg.tools_used && msg.tools_used.length > 0 && (
-          <div className="ai-tools-used">
-            {msg.tools_used.map((t, i) => (
-              <span key={i} className="ai-tool-badge">{t.replace(/_/g, ' ')}</span>
-            ))}
-          </div>
-        )}
-        {msg.intent && (
-          <span className="ai-intent-badge">{msg.intent}</span>
-        )}
-        <EvidenceCard evidence={msg.evidence} />
-        <SourcesBadge sources={msg.sources} />
-        {msg.latency_ms != null && (
-          <div className="ai-latency">{msg.latency_ms}ms</div>
-        )}
       </div>
     </div>
   );
 }
+
 
 /* ── Suggested Questions ─────────────────────────────────────────── */
 function SuggestedQuestions({ questions, onSelect, disabled }) {
