@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useUser, useAuth, UserButton, SignInButton, SignUpButton, SignedIn, SignedOut } from '@clerk/clerk-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import AuthModal from './components/AuthModal.jsx';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
@@ -449,6 +450,7 @@ export default function App() {
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      <SpeedInsights />
     </div>
   );
 }
