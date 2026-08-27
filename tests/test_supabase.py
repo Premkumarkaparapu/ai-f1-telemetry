@@ -1,11 +1,13 @@
 from unittest.mock import patch
 from sqlalchemy.pool import NullPool
-from sqlalchemy import create_engine
 
 
 def test_supabase_pooler_nullpool():
     # Setup test URL matching Supabase PgBouncer pooler format
-    test_url = "postgresql://postgres.ref:pass@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    test_url = (
+        "postgresql://postgres.ref:pass@"
+        "aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    )
 
     # Evaluate NullPool detection logic
     connect_args = {}
@@ -31,7 +33,9 @@ def test_supabase_pooler_nullpool():
     # Test create_engine construction works cleanly with the custom args
     import sqlalchemy
     with patch("sqlalchemy.create_engine") as mock_create_engine:
-        sqlalchemy.create_engine(test_url, connect_args=connect_args, **engine_args)
+        sqlalchemy.create_engine(
+            test_url, connect_args=connect_args, **engine_args
+        )
         mock_create_engine.assert_called_once_with(
             test_url,
             connect_args=connect_args,
