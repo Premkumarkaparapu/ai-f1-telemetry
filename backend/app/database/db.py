@@ -45,14 +45,18 @@ engine = create_engine(
     **engine_args
 )
 
+def set_read_write(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("SET default_transaction_read_only = off;")
+    cursor.execute("SET transaction_read_only = off;")
+    cursor.close()
+
+
 # Automatically override session read-only transaction constraints for PostgreSQL/Supabase
 if not DATABASE_URL.startswith("sqlite"):
-    @event.listens_for(engine, "connect")
-    def set_read_write(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("SET default_transaction_read_only = off;")
-        cursor.execute("SET transaction_read_only = off;")
-        cursor.close()
+    import os
+    if os.getenv("DB_DISABLE_ON_CONNECT_HOOKS", "false").lower() != "true":
+        event.listen(engine, "connect", set_read_write)
 
 # Enable WAL mode for SQLite — dramatically improves concurrent read performance.
 if DATABASE_URL.startswith("sqlite"):
