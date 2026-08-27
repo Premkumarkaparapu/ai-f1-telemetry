@@ -1,6 +1,7 @@
-"""
-SQLAlchemy engine and session factory.
-Every other module imports `get_db` (for FastAPI) or `SessionLocal` (for pipeline scripts).
+"""SQLAlchemy engine and session factory.
+
+Every other module imports `get_db` (for FastAPI) or `SessionLocal` (for
+pipeline scripts).
 """
 
 from contextlib import contextmanager
@@ -14,7 +15,7 @@ from backend.app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# ── Engine ────────────────────────────────────────────────────────────────────
+# ── Engine ───────────────────────────────────────────────────────────────────
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
@@ -45,6 +46,7 @@ engine = create_engine(
     **engine_args
 )
 
+
 def set_read_write(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("SET default_transaction_read_only = off;")
@@ -52,13 +54,14 @@ def set_read_write(dbapi_connection, connection_record):
     cursor.close()
 
 
-# Automatically override session read-only transaction constraints for PostgreSQL/Supabase
+# Automatically override session read-only transaction constraints
+# for PostgreSQL/Supabase.
 if not DATABASE_URL.startswith("sqlite"):
     import os
     if os.getenv("DB_DISABLE_ON_CONNECT_HOOKS", "false").lower() != "true":
         event.listen(engine, "connect", set_read_write)
 
-# Enable WAL mode for SQLite — dramatically improves concurrent read performance.
+# Enable WAL mode for SQLite — improves concurrent read performance.
 if DATABASE_URL.startswith("sqlite"):
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragma(dbapi_conn, _):
@@ -70,10 +73,10 @@ if DATABASE_URL.startswith("sqlite"):
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-# ── FastAPI dependency ────────────────────────────────────────────────────────
+# ── FastAPI dependency ───────────────────────────────────────────────────────
 
 def get_db() -> Generator[Session, None, None]:
-    """Yield a database session, ensuring it's always closed after the request."""
+    """Yield a database session, ensuring it's always closed."""
     db = SessionLocal()
     try:
         yield db
@@ -81,7 +84,7 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-# ── Pipeline context manager ──────────────────────────────────────────────────
+# ── Pipeline context manager ─────────────────────────────────────────────────
 
 @contextmanager
 def get_pipeline_db() -> Generator[Session, None, None]:
