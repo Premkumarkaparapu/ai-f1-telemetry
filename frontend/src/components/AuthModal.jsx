@@ -5,12 +5,12 @@ import { useState } from 'react'
 const clerkAppearance = {
   variables: {
     colorPrimary: '#e8002d',
-    colorBackground: '#0b0f19',
+    colorBackground: '#0a0e17',
     colorText: '#f0f4f8',
-    colorTextSecondary: '#8899aa',
-    colorInputBackground: '#131a26',
+    colorTextSecondary: '#94a3b8',
+    colorInputBackground: '#111726',
     colorInputText: '#ffffff',
-    colorBorder: 'rgba(255, 255, 255, 0.08)',
+    colorBorder: 'rgba(255, 255, 255, 0.15)',
   },
   elements: {
     rootBox: {
@@ -18,38 +18,56 @@ const clerkAppearance = {
     },
     card: {
       width: '100%',
-      background: '#0b0f19',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+      background: '#0a0e17',
+      border: '1px solid rgba(255, 255, 255, 0.12)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
     },
     headerTitle: {
+      color: '#ffffff',
       fontFamily: 'inherit',
-      fontWeight: 700,
+      fontWeight: 800,
+      fontSize: '22px',
+      letterSpacing: '-0.5px',
     },
     headerSubtitle: {
+      color: '#94a3b8',
       fontFamily: 'inherit',
+      fontSize: '14px',
     },
     socialButtonsBlockButton: {
-      background: '#131a26',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
+      background: '#111726',
+      border: '1px solid rgba(255, 255, 255, 0.15)',
       transition: 'all 0.15s',
+      height: '42px',
       '&:hover': {
-        background: '#1c2638',
-        borderColor: 'rgba(255, 255, 255, 0.15)',
+        background: '#1d273d',
+        borderColor: 'rgba(255, 255, 255, 0.3)',
       },
     },
     socialButtonsBlockButtonText: {
-      color: '#f0f4f8',
+      color: '#ffffff',
+      fontWeight: 600,
+      fontSize: '13px',
+    },
+    dividerLine: {
+      background: 'rgba(255, 255, 255, 0.15)',
+    },
+    dividerText: {
+      color: '#94a3b8',
       fontWeight: 500,
     },
     formFieldLabel: {
-      color: '#8899aa',
-      fontWeight: 500,
+      color: '#e2e8f0',
+      fontWeight: 600,
+      fontSize: '13px',
+      marginBottom: '4px',
     },
     formFieldInput: {
-      background: '#131a26',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
+      background: '#111726',
+      border: '1px solid rgba(255, 255, 255, 0.18)',
       color: '#ffffff',
+      height: '42px',
+      fontSize: '14px',
       transition: 'all 0.15s',
       '&:focus': {
         borderColor: '#e8002d',
@@ -59,7 +77,9 @@ const clerkAppearance = {
     formButtonPrimary: {
       background: '#e8002d',
       textTransform: 'none',
-      fontWeight: 600,
+      fontWeight: 700,
+      height: '42px',
+      fontSize: '14px',
       '&:hover': {
         background: '#c70024',
       },
@@ -68,23 +88,26 @@ const clerkAppearance = {
       },
     },
     footerActionText: {
-      color: '#8899aa',
+      color: '#94a3b8',
+      fontSize: '13px',
     },
     footerActionLink: {
       color: '#e8002d',
+      fontWeight: 600,
+      fontSize: '13px',
       '&:hover': {
         color: '#c70024',
       },
     },
     identityPreviewText: {
-      color: '#f0f4f8',
+      color: '#ffffff',
     },
     identityPreviewEditButtonIcon: {
-      color: '#8899aa',
+      color: '#94a3b8',
     },
     otpCodeFieldInput: {
-      background: '#131a26',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
+      background: '#111726',
+      border: '1px solid rgba(255, 255, 255, 0.18)',
       color: '#ffffff',
     },
   },
