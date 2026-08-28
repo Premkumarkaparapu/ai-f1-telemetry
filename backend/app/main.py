@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from backend.app.core.audit_middleware import DurableAuditMiddleware
 import httpx
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -91,6 +92,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(DurableAuditMiddleware)
+
 
 # ── Request ID middleware ─────────────────────────────────────────────────────
 

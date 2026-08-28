@@ -367,3 +367,20 @@ class TrackProfile(Base):
     degradation_multiplier = Column(Float, nullable=False, default=1.0)
     traffic_lambda = Column(Float, nullable=False, default=1.2)
     created_at = Column(DateTime, default=func.now())
+
+
+# ── Audit Events ──────────────────────────────────────────────────────────────
+
+class AuditEvent(Base):
+    """Audit logs tracking security-sensitive and analytical requests."""
+
+    __tablename__ = "audit_events"
+
+    event_id = Column(Integer, primary_key=True, autoincrement=True)
+    event_type = Column(String(50), nullable=False)
+    user_id = Column(String(100), nullable=True)
+    request_id = Column(String(36), nullable=False)
+    ip_hash = Column(String(64), nullable=False)
+    action_details = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False)
+    created_at = Column(DateTime, default=func.now())
