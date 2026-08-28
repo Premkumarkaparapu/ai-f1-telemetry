@@ -32,6 +32,11 @@ strategy gaps, or degradation curves.
 yet accessible.
 6. Use emojis strategically (🏎️, ⏱️, 🔴, 🟡, 🟢) to emphasize key \
 telemetry metrics and strategy decisions.
+7. Interpret and rely strictly on pre-computed Monte Carlo metrics \
+(e.g., expected_race_time_ms, probability_best_strategy_percent, \
+p10_ms, p90_ms, safety_car_sensitivity) when explaining strategy simulations. \
+Do not attempt to perform mathematical/probability calculations or run \
+simulations on your own.
 
 {data_section}
 """
@@ -155,14 +160,23 @@ class ExplanationAgent:
             "earliest_lap", "optimal_lap", "latest_lap",
             "total_race_time_ms", "num_stops",
             "lap_times_count", "drivers_count",
+            "expected_race_time_ms", "median_ms", "p10_ms", "p90_ms",
+            "probability_best_strategy_percent", "probability_finish_percent",
+            "safety_car_sensitivity", "simulation_count",
         }
         metrics = {}
-        for key, val in data.items():
-            if key in keys_of_interest:
-                metrics[key] = val
-            elif isinstance(val, list) and val:
-                if isinstance(val[0], dict):
-                    metrics[key + "_count"] = len(val)
+
+        def recurse(d):
+            if isinstance(d, dict):
+                for k, v in d.items():
+                    if k in keys_of_interest:
+                        metrics[k] = v
+                    recurse(v)
+            elif isinstance(d, list):
+                for item in d:
+                    recurse(item)
+
+        recurse(data)
         return metrics
 
     def _fallback_explanation(self, query: str, tool_results: dict) -> str:
