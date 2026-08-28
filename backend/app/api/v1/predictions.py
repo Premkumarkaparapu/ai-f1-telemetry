@@ -7,16 +7,23 @@ from backend.app.database.db import get_db
 from backend.app.repositories.prediction_repository import PredictionRepository
 from backend.app.repositories.lap_repository import LapRepository
 from backend.app.repositories.driver_repository import DriverRepository
+from backend.app.repositories.track_profile_repository import TrackProfileRepository
 from backend.app.services.prediction_service import PredictionService
+from backend.app.services.monte_carlo_service import MonteCarloService
 from backend.app.core.rate_limit import rate_limit
 from backend.app.api.v1.security import require_scope
 from backend.app.schemas.schemas import (
     PredictionRequest, PredictionOut,
     StrategySimRequest, StrategySimOut,
     DegradationCurveOut, PitWindowOut,
+    StrategyComparisonRequest, StrategyComparisonOut,
 )
 
 router = APIRouter(prefix="/predict", tags=["Predictions"])
+
+
+def _get_monte_carlo_service(db: Session = Depends(get_db)) -> MonteCarloService:
+    return MonteCarloService(TrackProfileRepository(db))
 
 
 def _get_service(db: Session = Depends(get_db)) -> PredictionService:
@@ -123,6 +130,60 @@ def prediction_history(
 ):
     """Returns all model predictions stored for the given session, newest first."""
     return svc.get_history(session_id)
+
+
+@router.post(
+    "/strategy/compare",
+    response_model=StrategyComparisonOut,
+    status_code=201,
+    summary="Compare multiple race strategies using Monte Carlo simulation",
+    dependencies=[Depends(rate_limit), Depends(require_scope("strategy:run"))]
+)
+def compare_strategies(
+    request: StrategyComparisonRequest,
+    svc: MonteCarloService = Depends(_get_monte_carlo_service),
+    db: Session = Depends(get_db),
+):
+    """Compare multiple proposed race strategies using 10,000 Monte Carlo runs."""
+    import sys
+    from backend.app.database.models import Session as SessionModel
+
+    session_obj = (
+        db.query(SessionModel)
+        .filter(SessionModel.session_id == request.session_id)
+        .first()
+    )
+    track_name = session_obj.track if session_obj else ""
+
+    strategies_dict = [
+        {
+            "strategy_name": s.strategy_name,
+            "pit_laps": s.pit_laps,
+            "compounds": s.compounds
+        }
+        for s in request.strategies
+    ]
+
+    # Block custom seeds in production. Only allow in tests.
+    is_test = "pytest" in sys.modules
+    t_laps = (
+        session_obj.total_laps
+        if (session_obj and session_obj.total_laps)
+        else 70
+    )
+    results = svc.simulate_strategies(
+        total_laps=t_laps,
+        strategies=strategies_dict,
+        track_name=track_name,
+        seed=request.seed,
+        is_test=is_test
+    )
+
+    return StrategyComparisonOut(
+        session_id=request.session_id,
+        driver_id=request.driver_id,
+        results=results
+    )
 
 
 @router.post("/debug-log", summary="CI log receiver")

@@ -245,3 +245,39 @@ class DriverStandingOut(BaseModel):
     avg_lap_time_ms: Optional[float]
     pit_stop_count: int
     position: int
+
+
+# ── Strategy Comparison (Monte Carlo) ─────────────────────────────────────────
+
+class StrategyCandidate(BaseModel):
+    strategy_name: str
+    pit_laps: list[int]
+    compounds: list[str]
+
+
+class StrategyComparisonRequest(BaseModel):
+    session_id: int
+    driver_id: int
+    strategies: list[StrategyCandidate]
+    seed: Optional[int] = None
+
+
+class StrategyComparisonResult(BaseModel):
+    strategy_name: str
+    pit_laps: list[int]
+    compounds: list[str]
+    expected_race_time_ms: int
+    median_ms: int
+    p10_ms: int
+    p90_ms: int
+    probability_best_strategy_percent: float
+    probability_finish_percent: float
+    safety_car_sensitivity: str
+    simulation_count: int
+    rng_seed: Optional[int] = None
+
+
+class StrategyComparisonOut(BaseModel):
+    session_id: int
+    driver_id: int
+    results: list[StrategyComparisonResult]

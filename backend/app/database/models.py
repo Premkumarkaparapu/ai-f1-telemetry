@@ -350,3 +350,20 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     last_login = Column(DateTime, nullable=True)
+
+
+# ── Track Profiles ────────────────────────────────────────────────────────────
+
+class TrackProfile(Base):
+    """Dynamic calibration profile parameters for simulated track strategies."""
+
+    __tablename__ = "track_profiles"
+
+    track = Column(String(100), primary_key=True)
+    safety_car_lambda = Column(Float, nullable=False, default=0.035)
+    vsc_lambda = Column(Float, nullable=False, default=0.045)
+    pit_loss_base_ms = Column(Float, nullable=False, default=25000.0)
+    pit_loss_variance_ms = Column(Float, nullable=False, default=2000.0)
+    degradation_multiplier = Column(Float, nullable=False, default=1.0)
+    traffic_lambda = Column(Float, nullable=False, default=1.2)
+    created_at = Column(DateTime, default=func.now())

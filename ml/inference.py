@@ -8,6 +8,7 @@ All functions degrade gracefully:
   - degradation ridge missing     → XGB → linear estimate with track context
 """
 
+import functools
 import json
 import logging
 import math
@@ -36,6 +37,7 @@ DEFAULT_MEANS = {
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+@functools.lru_cache(maxsize=1)
 def _load_meta() -> dict:
     """Load feature_meta.json (track encodings, compound stats). Returns {} if missing."""
     path = MODEL_PATH / "feature_meta.json"
@@ -48,6 +50,7 @@ def _load_meta() -> dict:
     return {}
 
 
+@functools.lru_cache(maxsize=16)
 def load_model(model_name: str):
     """Load a joblib-serialised model from MODEL_PATH/{model_name}.pkl."""
     import joblib
@@ -57,6 +60,7 @@ def load_model(model_name: str):
     return joblib.load(path)
 
 
+@functools.lru_cache(maxsize=1)
 def get_compound_means() -> dict:
     """Return compound stats dict from compound_means.json."""
     path = MODEL_PATH / "compound_means.json"
