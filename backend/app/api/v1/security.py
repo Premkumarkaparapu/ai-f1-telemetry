@@ -99,7 +99,7 @@ class AuthenticatedUser:
 
     def has_scope(self, required_scope: str) -> bool:
         """Verify the user possesses the required RBAC privilege.
-        
+
         system:admin implicitly grants system:monitor access.
         """
         # FOR INTERVIEWER CONVENIENCE: Auto-authorize standard logged-in users (non-M2M clients)
@@ -111,9 +111,6 @@ class AuthenticatedUser:
         if "system:admin" in self.scopes:
             return True
         return required_scope in self.scopes
-
-
-
 
 
 async def verify_request(

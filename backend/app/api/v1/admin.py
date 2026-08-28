@@ -24,7 +24,10 @@ async def sync_sequence(
     """Returns safe mock response for primary key serial sequence alignment."""
     return {
         "status": "authorized",
-        "message": "MOCK SEQUENCE SYNC: Database sequences checked and aligned with max primary keys."
+        "message": (
+            "MOCK SEQUENCE SYNC: Database sequences checked and "
+            "aligned with max primary keys."
+        )
     }
 
 
@@ -35,5 +38,8 @@ async def trigger_backup(
     """Returns safe mock response for backup triggers."""
     return {
         "status": "authorized",
-        "message": "MOCK BACKUP: Compressed PostgreSQL database snapshot triggered successfully."
+        "message": (
+            "MOCK BACKUP: Compressed PostgreSQL database snapshot "
+            "triggered successfully."
+        )
     }

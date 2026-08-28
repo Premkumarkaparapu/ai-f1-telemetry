@@ -12,7 +12,11 @@ from backend.app.services.telemetry_service import TelemetryService
 from backend.app.schemas.schemas import TelemetryPointOut, TelemetrySummaryOut, LapCompareOut
 from backend.app.api.v1.security import require_scope
 
-router = APIRouter(prefix="/telemetry", tags=["Telemetry"], dependencies=[Depends(require_scope("telemetry:read"))])
+router = APIRouter(
+    prefix="/telemetry",
+    tags=["Telemetry"],
+    dependencies=[Depends(require_scope("telemetry:read"))],
+)
 
 INTERVAL_MS = 200  # 5 Hz
 

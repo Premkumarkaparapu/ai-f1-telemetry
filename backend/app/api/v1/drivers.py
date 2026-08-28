@@ -9,7 +9,11 @@ from backend.app.schemas.schemas import DriverOut
 from backend.app.core.logging import get_logger
 from backend.app.api.v1.security import require_scope
 
-router = APIRouter(prefix="/drivers", tags=["Drivers"], dependencies=[Depends(require_scope("telemetry:read"))])
+router = APIRouter(
+    prefix="/drivers",
+    tags=["Drivers"],
+    dependencies=[Depends(require_scope("telemetry:read"))],
+)
 logger = get_logger(__name__)
 
 

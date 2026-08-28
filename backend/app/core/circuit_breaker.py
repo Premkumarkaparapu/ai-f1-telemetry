@@ -62,7 +62,6 @@ class CircuitBreaker:
         CIRCUIT_BREAKER_STATE.set(state_map.get(state, 1.0))
         return state
 
-
     async def acquire_half_open_lock(self) -> bool:
         """Acquire lock to allow a single probe request in HALF-OPEN state."""
         redis_client = get_redis_client()

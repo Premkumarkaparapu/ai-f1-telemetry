@@ -228,7 +228,15 @@ class TestJWTIntegration:
         mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
         with patch.object(jwks_client, "_keys", mock_keys):
             with patch.object(jwks_client, "_last_fetched", time.time()):
-                resp = self.client.post("/api/v1/predict/", json={"session_id": 1, "driver_id": 1, "prediction_type": "lap_time"}, headers=headers)
+                resp = self.client.post(
+                    "/api/v1/predict/",
+                    json={
+                        "session_id": 1,
+                        "driver_id": 1,
+                        "prediction_type": "lap_time",
+                    },
+                    headers=headers,
+                )
                 assert resp.status_code == 403
 
     @pytest.mark.anyio
@@ -238,7 +246,11 @@ class TestJWTIntegration:
         mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
         with patch.object(jwks_client, "_keys", mock_keys):
             with patch.object(jwks_client, "_last_fetched", time.time()):
-                resp = self.client.post("/api/v1/ai/ask", json={"prompt": "F1 strategy info"}, headers=headers)
+                resp = self.client.post(
+                    "/api/v1/ai/ask",
+                    json={"prompt": "F1 strategy info"},
+                    headers=headers,
+                )
                 assert resp.status_code == 403
 
     @pytest.mark.anyio
@@ -248,7 +260,15 @@ class TestJWTIntegration:
         mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
         with patch.object(jwks_client, "_keys", mock_keys):
             with patch.object(jwks_client, "_last_fetched", time.time()):
-                resp = self.client.post("/api/v1/predict/", json={"session_id": 1, "driver_id": 1, "prediction_type": "lap_time"}, headers=headers)
+                resp = self.client.post(
+                    "/api/v1/predict/",
+                    json={
+                        "session_id": 1,
+                        "driver_id": 1,
+                        "prediction_type": "lap_time",
+                    },
+                    headers=headers,
+                )
                 assert resp.status_code != 403
 
     @pytest.mark.anyio
@@ -258,7 +278,11 @@ class TestJWTIntegration:
         mock_keys = {"test-kid-1": jwt.algorithms.RSAAlgorithm.from_jwk(self.jwk)}
         with patch.object(jwks_client, "_keys", mock_keys):
             with patch.object(jwks_client, "_last_fetched", time.time()):
-                resp = self.client.post("/api/v1/ai/ask", json={"prompt": "F1 strategy info"}, headers=headers)
+                resp = self.client.post(
+                    "/api/v1/ai/ask",
+                    json={"prompt": "F1 strategy info"},
+                    headers=headers,
+                )
                 assert resp.status_code != 403
 
     @pytest.mark.anyio
@@ -391,5 +415,3 @@ class TestJWTIntegration:
         headers = {"X-API-Key": "dev_secret_key"}
         resp = self.client.get("/api/v1/monitoring/status", headers=headers)
         assert resp.status_code == 403
-
-

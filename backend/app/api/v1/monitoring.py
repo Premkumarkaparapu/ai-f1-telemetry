@@ -3,7 +3,7 @@ import sys
 import time
 from typing import Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from prometheus_client import REGISTRY
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -22,7 +22,7 @@ async def get_status(
     db: Session = Depends(get_db),
     user: AuthenticatedUser = Depends(require_scope("system:monitor"))
 ):
-    """Returns overall platform component status pings and application uptime."""
+    """Returns overall platform component status pings and uptime."""
     # 1. Database connection check
     db_status = "connected"
     try:
@@ -61,7 +61,7 @@ async def get_status(
 async def get_metrics(
     user: AuthenticatedUser = Depends(require_scope("system:monitor"))
 ):
-    """Summarizes in-process Prometheus metrics without executing HTTP calls."""
+    """Summarizes Prometheus metrics without HTTP calls."""
     req_count = 0
     err_count = 0
     duration_sum = 0.0
@@ -103,8 +103,14 @@ async def get_metrics(
                 gemini_latency_count += int(s.value)
 
     # Calculate pings and performance deltas
-    avg_latency_ms = (duration_sum / duration_count * 1000.0) if duration_count > 0 else 0.0
-    avg_gemini_latency_ms = (gemini_latency_sum / gemini_latency_count * 1000.0) if gemini_latency_count > 0 else 0.0
+    avg_latency_ms = (
+        (duration_sum / duration_count * 1000.0)
+        if duration_count > 0 else 0.0
+    )
+    avg_gemini_latency_ms = (
+        (gemini_latency_sum / gemini_latency_count * 1000.0)
+        if gemini_latency_count > 0 else 0.0
+    )
 
     redis_latency_ms = 0.0
     if redis_manager.client is not None:
@@ -133,7 +139,7 @@ async def get_health(
     user: AuthenticatedUser = Depends(require_scope("system:monitor"))
 ):
     """Evaluates backing service health state machine logic:
-    
+
     API + DB + Redis + Gemini healthy -> healthy
     DB unavailable                   -> unavailable
     Redis unavailable                -> degraded
@@ -160,7 +166,11 @@ async def get_health(
     # Define overall health state hierarchy
     if not db_healthy:
         overall_status = "unavailable"
-    elif not redis_healthy or not gemini_healthy or cb_state in ("OPEN", "HALF-OPEN"):
+    elif (
+        not redis_healthy
+        or not gemini_healthy
+        or cb_state in ("OPEN", "HALF-OPEN")
+    ):
         overall_status = "degraded"
     else:
         overall_status = "healthy"
@@ -181,7 +191,7 @@ async def get_diagnostics(
     db: Session = Depends(get_db),
     user: AuthenticatedUser = Depends(require_scope("system:monitor"))
 ):
-    """Executes safe, read-only diagnostic checks and lightweight file validations."""
+    """Executes safe read-only diagnostics and file validations."""
     db_ok = True
     try:
         db.execute(text("SELECT 1"))
@@ -203,8 +213,12 @@ async def get_diagnostics(
     # 1. XGBoost Model
     xgb_path = MODEL_PATH / "laptime_predictor.pkl"
     xgb_exists = xgb_path.exists()
+    xgb_status = (
+        "Loaded" if ("ml.inference" in sys.modules and xgb_exists)
+        else ("Available" if xgb_exists else "Missing")
+    )
     models_status["xgboost"] = {
-        "status": "Loaded" if ("ml.inference" in sys.modules and xgb_exists) else ("Available" if xgb_exists else "Missing"),
+        "status": xgb_status,
         "file_exists": xgb_exists,
         "file_size_bytes": xgb_path.stat().st_size if xgb_exists else 0,
     }
@@ -222,19 +236,26 @@ async def get_diagnostics(
         else:
             total_ridge_size += r_path.stat().st_size
         ridge_status.append({"compound": c, "exists": exists})
-        
+
+    ridge_lbl = (
+        "Loaded" if ("ml.inference" in sys.modules and all_ridge_exists)
+        else ("Available" if all_ridge_exists else "Degraded")
+    )
     models_status["ridge"] = {
-        "status": "Loaded" if ("ml.inference" in sys.modules and all_ridge_exists) else ("Available" if all_ridge_exists else "Degraded"),
+        "status": ridge_lbl,
         "all_compounds_exist": all_ridge_exists,
         "compounds": ridge_status,
         "total_file_size_bytes": total_ridge_size,
     }
 
-    # 3. Preprocessing Pipeline
     prep_path = MODEL_PATH / "preprocessing_pipeline.pkl"
     prep_exists = prep_path.exists()
+    prep_status = (
+        "Loaded" if ("ml.inference" in sys.modules and prep_exists)
+        else ("Available" if prep_exists else "Missing")
+    )
     models_status["preprocessing"] = {
-        "status": "Loaded" if ("ml.inference" in sys.modules and prep_exists) else ("Available" if prep_exists else "Missing"),
+        "status": prep_status,
         "file_exists": prep_exists,
         "file_size_bytes": prep_path.stat().st_size if prep_exists else 0,
     }
@@ -252,10 +273,14 @@ async def get_diagnostics(
 
     cb_state = await gemini_circuit.get_state()
 
+    ai_active = (
+        sys.modules.get("backend.app.core.ai_config") or
+        sys.modules.get("backend.app.services.ai_service")
+    )
     return {
         "database_connected": db_ok,
         "redis_connected": redis_ok,
-        "gemini_api_configured": bool(sys.modules.get("backend.app.core.ai_config") or sys.modules.get("backend.app.services.ai_service")),
+        "gemini_api_configured": bool(ai_active),
         "circuit_breaker_state": cb_state,
         "ml_models": models_status,
         "model_version": model_version,

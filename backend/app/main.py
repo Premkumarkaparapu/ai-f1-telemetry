@@ -25,7 +25,9 @@ import time  # noqa: E402
 
 from backend.app.api.v1 import ai as ai_router  # noqa: E402
 from backend.app.api.v1 import auth as auth_router  # noqa: E402
-from backend.app.api.v1 import drivers, laps, predictions, sessions, telemetry, monitoring, admin  # noqa: E402
+from backend.app.api.v1 import (  # noqa: E402
+    drivers, laps, predictions, sessions, telemetry, monitoring, admin
+)
 from backend.app.core.ai_config import AI_PROVIDER  # noqa: E402
 from backend.app.core.config import API_PREFIX, CORS_ORIGINS, RAW_DIR  # noqa: E402
 from backend.app.core.logging import setup_logging  # noqa: E402
@@ -287,4 +289,3 @@ async def health_ready(db: Session = Depends(get_db)):
         content={"status": status_str, "checks": checks},
         status_code=status_code
     )
-

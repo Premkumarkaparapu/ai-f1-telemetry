@@ -80,7 +80,7 @@ def fill_telemetry():
                 print(f"  Loading pickle: {slug}...")
                 with open(pkl_path, "rb") as f:
                     ff1 = pickle.load(f)
-                
+
                 # Check if telemetry is loaded, if not, load it via FastF1
                 try:
                     ff1.laps.iloc[0].get_telemetry()
@@ -124,7 +124,10 @@ def fill_telemetry():
                 try:
                     tel = lap_row.get_telemetry()
                 except Exception as tel_err:
-                    print(f"    {drv.code}: merged telemetry failed ({tel_err}). Falling back to car_data...")
+                    print(
+                        f"    {drv.code}: merged telemetry failed "
+                        f"({tel_err}). Falling back to car_data..."
+                    )
                     try:
                         tel = lap_row.get_car_data()
                         tel["X"] = None

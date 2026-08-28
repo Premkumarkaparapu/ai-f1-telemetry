@@ -12,16 +12,26 @@ from backend.app.services.ai_service import AIService
 
 logger = get_logger(__name__)
 
-_EXPLANATION_SYSTEM_PROMPT = """You are an expert F1 Race Engineer on the team pitwall, speaking directly to your driver over the team radio. 
-Adopt a highly immersive, active, and realistic F1 Race Engineer persona (e.g., "Copy that, Verstappen is currently pushing...", "We are seeing high thermal degradation on the medium tire...").
+_EXPLANATION_SYSTEM_PROMPT = """You are an expert F1 Race Engineer on \
+the team pitwall, speaking directly to your driver over the team radio.
+Adopt a highly immersive, active, and realistic F1 Race Engineer persona
+(e.g., "Copy that, Verstappen is currently pushing...", "We are seeing
+high thermal degradation on the medium tire...").
 
 INSTRUCTIONS:
-1. Speak conversationally and directly, using realistic pit radio jargon (e.g., "Copy that", "Loud and clear", "Push now", "Box this lap", "Watch the gap to the car behind").
-2. Avoid robotic templates, boring introductions (like "Here is the race summary..."), or boilerplate conclusions. Jump straight into the action and tactical telemetry insights.
-3. Ground your analysis with real data and numbers (lap times, sector splits, tire compounds) whenever available in the context.
-4. Highlight interesting trends dynamically: fastest laps, undercuts, strategy gaps, or degradation curves.
-5. Keep responses concise (2-4 paragraphs), sharp, and highly technical yet accessible.
-6. Use emojis strategically (🏎️, ⏱️, 🔴, 🟡, 🟢) to emphasize key telemetry metrics and strategy decisions.
+1. Speak conversationally and directly, using realistic pit radio jargon
+(e.g., "Copy that", "Push now", "Box this lap", "Watch the gap").
+2. Avoid robotic templates, boring introductions (like "Here is the \
+race summary..."), or boilerplate conclusions. Jump straight into \
+the action and tactical telemetry insights.
+3. Ground your analysis with real data and numbers (lap times, sector \
+splits, tire compounds) whenever available in the context.
+4. Highlight interesting trends dynamically: fastest laps, undercuts, \
+strategy gaps, or degradation curves.
+5. Keep responses concise (2-4 paragraphs), sharp, and highly technical \
+yet accessible.
+6. Use emojis strategically (🏎️, ⏱️, 🔴, 🟡, 🟢) to emphasize key \
+telemetry metrics and strategy decisions.
 
 {data_section}
 """
@@ -35,7 +45,8 @@ KNOWLEDGE BASE CONTEXT:
 """
 
 _NO_DATA_SECTION = """
-Note: No specific session data was queried for this question. Answer from your F1 expertise.
+Note: No specific session data was queried for this question. \
+Answer from your F1 expertise.
 """
 
 
@@ -95,7 +106,9 @@ class ExplanationAgent:
             logger.error("Stream explain failed: %s", exc)
             yield self._fallback_explanation(query, tool_results)
 
-    def _build_system_prompt(self, tool_results: dict, knowledge_results: dict) -> str:
+    def _build_system_prompt(
+        self, tool_results: dict, knowledge_results: dict
+    ) -> str:
         """Build the system prompt with or without data context."""
         has_tool_data = bool(tool_results.get("results", {}))
         has_knowledge = bool(knowledge_results.get("chunks", []))
@@ -123,7 +136,7 @@ class ExplanationAgent:
         return _EXPLANATION_SYSTEM_PROMPT.format(data_section=data_section)
 
     def _extract_evidence(self, results: dict) -> dict:
-        """Pull key metrics from tool results into a flat key-value dictionary."""
+        """Pull key metrics from tool results to flat dict."""
         evidence = {}
         for tool_name, data in results.items():
             if isinstance(data, dict) and "error" not in data:
@@ -174,5 +187,6 @@ class ExplanationAgent:
         return (
             "I'm having trouble connecting to the AI service right now. "
             "Please try again in a moment, or ask a specific data question "
-            "like 'What was VER's pace?' which I can answer from the database directly."
+            "like 'What was VER's pace?' which I can answer from the "
+            "database directly."
         )

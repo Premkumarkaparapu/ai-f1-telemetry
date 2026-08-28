@@ -14,7 +14,6 @@ os.environ["AI_PROVIDER"] = "mock"
 os.environ["GEMINI_API_KEY"] = "mock_key"
 
 
-
 # ── Dependency Overrides for Tests ───────────────────────────────────────────
 from backend.app.main import app  # noqa: E402
 from backend.app.api.v1.security import verify_request, AuthenticatedUser  # noqa: E402

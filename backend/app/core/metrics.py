@@ -73,5 +73,3 @@ CIRCUIT_BREAKER_STATE = Gauge(
     "circuit_breaker_state",
     "State of the circuit breaker (1 = CLOSED, 0.5 = HALF-OPEN, 0 = OPEN).",
 )
-
-

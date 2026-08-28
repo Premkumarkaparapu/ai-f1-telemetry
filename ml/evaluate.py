@@ -12,10 +12,10 @@ import numpy as np
 import pandas as pd
 import joblib
 
+from backend.app.core.config import DATABASE_URL, MODEL_PATH
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 logger = logging.getLogger(__name__)
-
-from backend.app.core.config import DATABASE_URL, MODEL_PATH
 
 COMPOUND_ENCODE = {"SOFT": 0, "MEDIUM": 1, "HARD": 2, "INTERMEDIATE": 3, "WET": 4}
 SESSION_ENCODE = {"R": 0, "Q": 1, "FP1": 2, "FP2": 3, "FP3": 4, "S": 5, "SQ": 6}
@@ -113,26 +113,34 @@ def run_evaluation() -> None:
 
     # Fallback if 2024 is empty (since there is no 2024 data in this database)
     if len(df_val) == 0 and len(df_train) > 10:
-        logger.info("Validation set (2024) is empty. Performing chronological 80/20 split on 2023 data for Train/Validation...")
+        logger.info(
+            "Validation set (2024) is empty. Performing chronological "
+            "80/20 split on 2023 data for Train/Validation..."
+        )
         df_2023 = df_train.sort_values("session_id")
         split_idx = int(len(df_2023) * 0.8)
         df_train = df_2023.iloc[:split_idx].copy()
         df_val = df_2023.iloc[split_idx:].copy()
 
     logger.info(
-        "Splits size -> Train (2023-part1): %d, Validation (2023-part2): %d, Test (2025-26): %d",
+        "Splits size -> Train (2023-part1): %d, Validation (2023-part2): %d, "
+        "Test (2025-26): %d",
         len(df_train), len(df_val), len(df_test)
     )
 
-
     # 1. Fit Track Encoding strictly on 2023 Train data
-    track_means_2023 = df_train.groupby("track")["fuel_corrected_lap_time_ms"].mean().sort_values()
+    track_means_2023 = (
+        df_train.groupby("track")["fuel_corrected_lap_time_ms"]
+        .mean()
+        .sort_values()
+    )
     track_enc_2023 = {t: i for i, t in enumerate(track_means_2023.index)}
 
     # 2. Fit Baseline (Mean compound fallback) strictly on 2023 Train data
     compound_means_2023 = {}
     global_mean_2023 = float(df_train["fuel_corrected_lap_time_ms"].mean())
-    for comp, grp in df_train.groupby(df_train["compound"].str.upper())["fuel_corrected_lap_time_ms"]:
+    groupby_comp = df_train.groupby(df_train["compound"].str.upper())
+    for comp, grp in groupby_comp["fuel_corrected_lap_time_ms"]:
         compound_means_2023[comp] = float(grp.mean())
 
     # 3. Preprocess all splits using 2023-fitted track encoding
@@ -200,7 +208,8 @@ def run_evaluation() -> None:
 
     # Baseline Predictions Helper
     def get_baseline_preds(df_proc):
-        return df_proc["compound"].str.upper().map(compound_means_2023).fillna(global_mean_2023).values
+        mapped = df_proc["compound"].str.upper().map(compound_means_2023)
+        return mapped.fillna(global_mean_2023).values
 
     # 1. Train Evaluation
     metrics_train = {
@@ -227,15 +236,22 @@ def run_evaluation() -> None:
     test_predictions = model_xgb.predict(X_test)
     df_test_eval = df_test_proc.copy()
     df_test_eval["pred"] = test_predictions
-    df_test_eval["abs_err"] = np.abs(df_test_eval["fuel_corrected_lap_time_ms"] - df_test_eval["pred"])
-    df_test_eval["sq_err"] = (df_test_eval["fuel_corrected_lap_time_ms"] - df_test_eval["pred"]) ** 2
+    diff_eval = (
+        df_test_proc["fuel_corrected_lap_time_ms"] - df_test_eval["pred"]
+    )
+    df_test_eval["abs_err"] = np.abs(diff_eval)
+    df_test_eval["sq_err"] = diff_eval ** 2
 
     # Group by compound
     compound_test_metrics = {}
     for comp, grp in df_test_eval.groupby("compound"):
         mae = float(grp["abs_err"].mean())
         rmse = float(np.sqrt(grp["sq_err"].mean()))
-        compound_test_metrics[comp.upper()] = {"mae": round(mae, 2), "rmse": round(rmse, 2), "n": len(grp)}
+        compound_test_metrics[comp.upper()] = {
+            "mae": round(mae, 2),
+            "rmse": round(rmse, 2),
+            "n": len(grp)
+        }
 
     # Group by track
     track_test_metrics = {}
@@ -275,13 +291,26 @@ def run_evaluation() -> None:
     print("\n" + "=" * 80)
     print("F1 TELEMETRY MODEL COMPARISON SUMMARY (CHRONOLOGICAL SPLITS)")
     print("=" * 80)
-    print(f"{'Split':<12} | {'Model':<10} | {'MAE (ms)':<10} | {'RMSE (ms)':<10} | {'R² Score':<10}")
+    headers = (
+        f"{'Split':<12} | {'Model':<10} | {'MAE (ms)':<10} | "
+        f"{'RMSE (ms)':<10} | {'R² Score':<10}"
+    )
+    print(headers)
     print("-" * 80)
 
-    for split_name, metrics in [("Train 2023", metrics_train), ("Val 2024", metrics_val), ("Test 2025-26", metrics_test)]:
+    splits_list = [
+        ("Train 2023", metrics_train),
+        ("Val 2024", metrics_val),
+        ("Test 2025-26", metrics_test),
+    ]
+    for split_name, metrics in splits_list:
         for model_name in ["baseline", "ridge", "xgboost"]:
             m = metrics[model_name]
-            print(f"{split_name:<12} | {model_name:<10} | {m['mae']:<10.2f} | {m['rmse']:<10.2f} | {m['r2']:<10.4f}")
+            print(
+                f"{split_name:<12} | {model_name:<10} | "
+                f"{m['mae']:<10.2f} | {m['rmse']:<10.2f} | "
+                f"{m['r2']:<10.4f}"
+            )
         print("-" * 80)
     print("=" * 80 + "\n")
 
