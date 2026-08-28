@@ -205,3 +205,52 @@ def require_scope(required_scope: str):
             )
         return user
     return dependency
+
+
+async def verify_token_ws(
+    token: str, http_client: httpx.AsyncClient
+) -> AuthenticatedUser:
+    """Verifies a token (API Key or Clerk JWT) for WebSocket connections."""
+    # 1. API Key M2M path
+    expected_raw = API_KEY or "dev_secret_key"
+    expected_monitoring = os.getenv("MONITORING_API_KEY", "dev_monitoring_key")
+    expected_admin = os.getenv("ADMIN_API_KEY", "dev_admin_key")
+
+    if hash_api_key(token) == hash_api_key(expected_raw):
+        return AuthenticatedUser(
+            sub="machine_client",
+            scopes=["telemetry:read", "strategy:run", "ai:ask"]
+        )
+    elif hash_api_key(token) == hash_api_key(expected_monitoring):
+        return AuthenticatedUser(
+            sub="monitoring_client",
+            scopes=["system:monitor"]
+        )
+    elif hash_api_key(token) == hash_api_key(expected_admin):
+        return AuthenticatedUser(
+            sub="admin_client",
+            scopes=["system:admin"]
+        )
+
+    # 2. JWT RS256 path
+    try:
+        unverified = jwt.get_unverified_header(token)
+        kid = unverified.get("kid")
+        if not kid:
+            raise InvalidTokenError("JWT missing 'kid' claim in header.")
+
+        signing_key = await jwks_client.get_signing_key(kid, http_client)
+        payload = jwt.decode(
+            token,
+            signing_key,
+            algorithms=["RS256"],
+            audience=JWT_AUDIENCE,
+            issuer=JWT_ISSUER,
+            options={"require": ["exp", "iss", "aud"]}
+        )
+        scopes = payload.get("permissions", []) or payload.get("scp", []) or []
+        sub = payload.get("sub", "user")
+        return AuthenticatedUser(sub=sub, scopes=list(scopes))
+    except Exception as exc:
+        logger.error("WebSocket JWT validation failed: %s", exc)
+        raise ValueError("Invalid authentication credentials")

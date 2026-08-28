@@ -19,6 +19,24 @@ class TelemetryRepository:
             .all()
         )
 
+    def get_by_lap_time_ordered(self, lap_id: int) -> list[TelemetryPoint]:
+        return (
+            self.db.query(TelemetryPoint)
+            .filter(TelemetryPoint.lap_id == lap_id)
+            .order_by(TelemetryPoint.time_ms)
+            .all()
+        )
+
+    def get_laps_with_telemetry(self, session_id: int) -> list[int]:
+        rows = (
+            self.db.query(TelemetryPoint.lap_id)
+            .filter(TelemetryPoint.session_id == session_id)
+            .distinct()
+            .order_by(TelemetryPoint.lap_id)
+            .all()
+        )
+        return [r[0] for r in rows]
+
     def get_summary(self, lap_id: int) -> dict:
         """Return aggregated stats for a lap — used by the /summary endpoint."""
         row = (
