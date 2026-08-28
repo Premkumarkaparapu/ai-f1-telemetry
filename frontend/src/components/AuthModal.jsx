@@ -1,6 +1,96 @@
 import { SignIn, SignUp, useClerk } from '@clerk/clerk-react'
 import { useState } from 'react'
 
+// Clerk styling customization object to match the application's dark premium theme
+const clerkAppearance = {
+  variables: {
+    colorPrimary: '#e8002d',
+    colorBackground: '#0b0f19',
+    colorText: '#f0f4f8',
+    colorTextSecondary: '#8899aa',
+    colorInputBackground: '#131a26',
+    colorInputText: '#ffffff',
+    colorBorder: 'rgba(255, 255, 255, 0.08)',
+  },
+  elements: {
+    rootBox: {
+      width: '100%',
+    },
+    card: {
+      width: '100%',
+      background: '#0b0f19',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+    },
+    headerTitle: {
+      fontFamily: 'inherit',
+      fontWeight: 700,
+    },
+    headerSubtitle: {
+      fontFamily: 'inherit',
+    },
+    socialButtonsBlockButton: {
+      background: '#131a26',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      transition: 'all 0.15s',
+      '&:hover': {
+        background: '#1c2638',
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+      },
+    },
+    socialButtonsBlockButtonText: {
+      color: '#f0f4f8',
+      fontWeight: 500,
+    },
+    formFieldLabel: {
+      color: '#8899aa',
+      fontWeight: 500,
+    },
+    formFieldInput: {
+      background: '#131a26',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      color: '#ffffff',
+      transition: 'all 0.15s',
+      '&:focus': {
+        borderColor: '#e8002d',
+        boxShadow: '0 0 0 1px #e8002d',
+      },
+    },
+    formButtonPrimary: {
+      background: '#e8002d',
+      textTransform: 'none',
+      fontWeight: 600,
+      '&:hover': {
+        background: '#c70024',
+      },
+      '&:active': {
+        background: '#a5001c',
+      },
+    },
+    footerActionText: {
+      color: '#8899aa',
+    },
+    footerActionLink: {
+      color: '#e8002d',
+      '&:hover': {
+        color: '#c70024',
+      },
+    },
+    identityPreviewText: {
+      color: '#f0f4f8',
+    },
+    identityPreviewEditButtonIcon: {
+      color: '#8899aa',
+    },
+    otpCodeFieldInput: {
+      background: '#131a26',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      color: '#ffffff',
+    },
+  },
+}
+
+
 // ── Full-page Clerk auth modal overlay ───────────────────────────────────────
 export default function AuthModal({ onClose, initialTab = 'login' }) {
   const [tab, setTab] = useState(initialTab === 'register' ? 'signup' : 'signin')
@@ -56,14 +146,14 @@ export default function AuthModal({ onClose, initialTab = 'login' }) {
         {tab === 'signin' ? (
           <SignIn
             afterSignInUrl="/"
-            appearance={{ elements: { rootBox: { width: '100%' }, card: { width: '100%' } } }}
+            appearance={clerkAppearance}
             routing="virtual"
             signUpUrl="#signup"
           />
         ) : (
           <SignUp
             afterSignUpUrl="/"
-            appearance={{ elements: { rootBox: { width: '100%' }, card: { width: '100%' } } }}
+            appearance={clerkAppearance}
             routing="virtual"
             signInUrl="#signin"
           />
