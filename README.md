@@ -1,6 +1,6 @@
 # AI F1 Telemetry Platform
 
-A production-grade, ML-driven Formula 1 race strategy and telemetry analysis platform. Built to demonstrate full-stack engineering, time-series data pipelines, and applied machine learning on real F1 data.
+A production-grade, ML-driven Formula 1 race strategy and telemetry analysis platform. Integrated with a multi-role authentication schema (Clerk), a state-managed AI Race Engineer (Gemini), distributed caching/semaphores (Redis Cloud), and time-series data pipelines.
 
 ## 🚀 Live Deployment
 
@@ -14,27 +14,41 @@ A production-grade, ML-driven Formula 1 race strategy and telemetry analysis pla
 
 ---
 
-
 ## Architecture
 
 ```
-┌──────────────────┐   ┌──────────────────┐   ┌───────────────────┐
-│   React Frontend │──▶│  FastAPI Backend  │──▶│   SQLite / PG DB  │
-│   (Vite + Chart) │   │  /api/v1/*        │   │   10 tables       │
-└──────────────────┘   └────────┬─────────┘   └───────────────────┘
-                                │
-                        ┌───────▼──────────┐
-                        │  ML Layer        │
-                        │  XGBoost + Ridge │
-                        │  joblib models   │
-                        └──────────────────┘
-                                │
-                        ┌───────▼──────────┐
-                        │  Data Pipeline   │
-                        │  FastF1 → 5Hz    │
-                        │  Parquet cache   │
-                        └──────────────────┘
+                 ┌────────────────────────────────┐
+                 │       React Dashboard          │
+                 │   (Clerk Auth, Recharts UI)    │
+                 └───────────────┬────────────────┘
+                                 │ HTTPS (JWT)
+                                 ▼
+                 ┌────────────────────────────────┐
+                 │        FastAPI Backend         │
+                 │   (RBAC Scopes, Rate-Limiter)  │
+                 └──────┬────────┬────────┬───────┘
+                        │        │        │
+      ┌─────────────────┘        │        └─────────────────┐
+      ▼                          ▼                          ▼
+┌───────────┐              ┌───────────┐              ┌───────────┐
+│ Gemini AI │              │ PostgreSQL│              │   Redis   │
+│ Pitwall   │              │ / SQLite  │              │ Semaphore │
+│ Engineer  │              │ 12 Tables │              │ Caching   │
+└───────────┘              └─────┬─────┘              └───────────┘
+                                 │
+                         ┌───────▼──────────┐
+                         │  ML Layer        │
+                         │  XGBoost + Ridge │
+                         └──────────────────┘
 ```
+
+## Core Capabilities
+
+- **🏁 Gemini Race Engineer:** Immersive pitwall persona delivering tactical suggestions and telemetry analyses grounded in live data.
+- **🔒 Clerk Auth & RBAC:** Unified token verification supporting granular scopes (`telemetry:read`, `strategy:run`, `ai:ask`, `system:monitor`, `system:admin`).
+- **⚡ Redis Cloud Caching:** Rate-limiting semaphores protecting Gemini APIs and enabling high-speed telemetry pings.
+- **🛡️ Fault Tolerance:** State-managed circuit breakers (Gemini), dynamic degradation paths (returns `200 Degraded` on Redis down, `503 Unhealthy` on Database down), and transaction overrides.
+
 
 ## Quickstart
 
@@ -140,7 +154,12 @@ Dashboard: http://localhost:5173
 
 ---
 
-## ML Models
+## AI & ML Models
+
+### Gemini Race Engineer Agent
+- **Persona:** Immersive F1 Race Engineer speaking from the pitwall.
+- **Grounding Layer:** Context injected dynamically from PostgreSQL queries and a localized vector/chunk knowledge base.
+- **Observability:** Custom latency, token usage, tool call logs, and fallback statuses recorded on each query.
 
 ### Tire Degradation
 - **XGBRegressor** trained on `(tyre_life, compound_enc, tyre_life²)` → `fuel_corrected_lap_time_ms`
@@ -208,6 +227,9 @@ ai-f1-telemetry/
 | Joblib lazy imports in inference | `import inference` never crashes if XGBoost not installed |
 | Repository layer | Decouples SQL from business logic; testable with in-memory SQLite |
 | `/api/v1/` prefix | Future-proof; `/api/v2/` can coexist without breaking clients |
+| Clerk JWT + API Key M2M | Dual auth paths supporting user login persistence & fast machine-to-machine integrations |
+| Redis concurrency semaphores | Protects third-party AI endpoints (Gemini) from traffic spikes & client floods |
+| State-managed circuit breaker | Fast-fails backend dependencies on network outage to maintain platform reliability |
 
 ---
 
@@ -215,7 +237,7 @@ ai-f1-telemetry/
 
 ```bash
 python -m pytest tests/ -v
-# 29 passed
+# 118 passed
 ```
 
 All tests use in-memory SQLite with `StaticPool` — no external services required.
