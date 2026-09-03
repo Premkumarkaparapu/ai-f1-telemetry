@@ -1,5 +1,5 @@
 // In production VITE_API_URL is set to the Render backend URL.
-// In development, Vite proxies /api to localhost:8000.
+// In development, Vite proxies /api to localhost:8001.
 const BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api/v1`
   : '/api/v1';

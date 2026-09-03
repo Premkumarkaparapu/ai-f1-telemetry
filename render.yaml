@@ -19,6 +19,8 @@ services:
         sync: false
       - key: F1_SECRET_KEY
         generateValue: true
+      - key: AUDIT_IP_SALT
+        generateValue: true
       - key: CORS_ORIGINS
         value: https://ai-f1-telemetry.vercel.app,https://f1-telemetry.vercel.app,http://localhost:5173
       - key: LOG_LEVEL

@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from backend.app.core.audit_middleware import DurableAuditMiddleware
 import httpx
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -23,6 +22,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from fastapi import Response  # noqa: E402
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST  # noqa: E402
 import time  # noqa: E402
+from backend.app.core.audit_middleware import DurableAuditMiddleware  # noqa: E402
 
 from backend.app.api.v1 import ai as ai_router  # noqa: E402
 from backend.app.api.v1 import auth as auth_router  # noqa: E402

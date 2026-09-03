@@ -83,7 +83,7 @@ export default function About() {
       <div className="card" style={{ marginBottom:10 }}>
         <div className="card-header">
           <span className="card-title">API Endpoints</span>
-          <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer"
+          <a href="http://localhost:8001/docs" target="_blank" rel="noreferrer"
             style={{ fontSize:10, color:'#60a5fa', textDecoration:'none', fontWeight:600 }}>📄 Swagger UI →</a>
         </div>
         <div className="card-body" style={{ padding:0 }}>
