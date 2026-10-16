@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useUser, useAuth, UserButton, SignInButton, SignUpButton, SignedIn, SignedOut } from '@clerk/clerk-react';
+import { api } from './api.js';
 import AuthModal from './components/AuthModal.jsx';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
@@ -288,10 +289,35 @@ function MenuItem({ icon, label, onClick, href, danger }) {
 export default function App() {
   const [page, setPage]   = useState('dashboard');
   const [authTab, setAuthTab] = useState(null);
+  const [serverState, setServerState] = useState('checking'); // 'checking' | 'live' | 'waking'
   const { isSignedIn }    = useAuth();
   const { user }          = useUser();
 
   function openAuth(tab = 'login') { setAuthTab(tab); }
+
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(() => {
+      if (active) setServerState(s => (s === 'checking' ? 'waking' : s));
+    }, 2000);
+
+    const ping = () => {
+      api.checkHealth()
+        .then(() => { if (active) setServerState('live'); })
+        .catch(() => {
+          if (active) {
+            setServerState('waking');
+            setTimeout(ping, 4000);
+          }
+        });
+    };
+    ping();
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Close auth modal automatically when user signs in via Clerk
   useEffect(() => {
@@ -399,13 +425,23 @@ export default function App() {
             {/* Live status */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
-              borderRadius: 20, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)',
+              borderRadius: 20,
+              background: serverState === 'live' ? 'rgba(52,211,153,0.1)' : serverState === 'waking' ? 'rgba(251,191,36,0.1)' : 'rgba(148,163,184,0.1)',
+              border: `1px solid ${serverState === 'live' ? 'rgba(52,211,153,0.25)' : serverState === 'waking' ? 'rgba(251,191,36,0.3)' : 'rgba(148,163,184,0.2)'}`,
             }}>
               <div style={{
-                width: 6, height: 6, borderRadius: '50%', background: '#34d399',
-                boxShadow: '0 0 6px #34d399', animation: 'pulse 2s infinite',
+                width: 6, height: 6, borderRadius: '50%',
+                background: serverState === 'live' ? '#34d399' : serverState === 'waking' ? '#fbbf24' : '#94a3b8',
+                boxShadow: serverState === 'live' ? '0 0 6px #34d399' : serverState === 'waking' ? '0 0 6px #fbbf24' : 'none',
+                animation: serverState === 'live' ? 'pulse 2s infinite' : serverState === 'waking' ? 'pulse 1s infinite' : 'none',
               }} />
-              <span style={{ fontSize: 10, color: '#34d399', fontWeight: 600 }}>API Live</span>
+              <span style={{
+                fontSize: 10,
+                color: serverState === 'live' ? '#34d399' : serverState === 'waking' ? '#fbbf24' : '#94a3b8',
+                fontWeight: 600
+              }}>
+                {serverState === 'live' ? 'API Live' : serverState === 'waking' ? 'Waking Up...' : 'Connecting...'}
+              </span>
             </div>
 
             <a className="header-btn" href="/docs" target="_blank" rel="noreferrer">
@@ -427,6 +463,24 @@ export default function App() {
             <AuthControls onLoginClick={openAuth} />
           </div>
         </header>
+
+        {serverState === 'waking' && (
+          <div style={{
+            background: 'linear-gradient(90deg, rgba(245,158,11,0.15), rgba(232,0,45,0.12))',
+            borderBottom: '1px solid rgba(245,158,11,0.3)',
+            color: '#fbbf24',
+            padding: '7px 16px',
+            fontSize: 11,
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}>
+            <span style={{ fontSize: 13 }}>⚡</span>
+            <span>Cloud backend is waking up from free-tier sleep (takes ~30–45s on first load). Data will populate automatically!</span>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <PageContent page={page} navigate={(p) => setPage(p)} onLoginClick={openAuth} />

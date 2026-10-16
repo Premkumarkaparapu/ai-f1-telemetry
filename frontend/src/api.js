@@ -20,11 +20,40 @@ async function authHeaders() {
   return headers;
 }
 
-async function get(path) {
-  const headers = await authHeaders();
-  const res = await fetch(`${BASE}${path}`, { headers });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
-  return res.json();
+const _cache = new Map();
+const _inFlight = new Map();
+
+async function get(path, { useCache = true, ttlMs = 5 * 60 * 1000 } = {}) {
+  const cacheKey = `${BASE}${path}`;
+  if (useCache && _cache.has(cacheKey)) {
+    const entry = _cache.get(cacheKey);
+    if (Date.now() - entry.timestamp < ttlMs) {
+      return entry.data;
+    }
+    _cache.delete(cacheKey);
+  }
+
+  if (_inFlight.has(cacheKey)) {
+    return _inFlight.get(cacheKey);
+  }
+
+  const promise = (async () => {
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(cacheKey, { headers });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
+      const data = await res.json();
+      if (useCache) {
+        _cache.set(cacheKey, { data, timestamp: Date.now() });
+      }
+      return data;
+    } finally {
+      _inFlight.delete(cacheKey);
+    }
+  })();
+
+  _inFlight.set(cacheKey, promise);
+  return promise;
 }
 
 async function post(path, body) {
@@ -157,6 +186,15 @@ export const api = {
         }
       }
     }
+  },
+
+  checkHealth: async () => {
+    const healthUrl = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/health`
+      : '/health';
+    const res = await fetch(healthUrl);
+    if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+    return res.json();
   },
 };
 
